@@ -1,0 +1,147 @@
+\documentclass[10pt,twocolumn,a4paper]{article}
+
+\usepackage[top=1.4cm, bottom=1.4cm, left=1.4cm, right=1.4cm]{geometry}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{amsmath}
+
+% Colors
+\definecolor{dark}{HTML}{1a1a1a}
+\definecolor{mid}{HTML}{555555}
+\definecolor{accent}{HTML}{2563eb}
+
+\hypersetup{colorlinks=true, urlcolor=accent, linkcolor=dark, citecolor=mid}
+
+% Section styling
+\titleformat{\section}
+  {\normalsize\bfseries\color{dark}}
+  {}{0em}{}
+\titlespacing{\section}{0pt}{0.7em}{0.25em}
+
+\setlength{\columnsep}{0.65cm}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.35em}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, topsep=0.2em, itemsep=0.1em}
+
+\begin{document}
+
+% Title
+\twocolumn[
+\begin{center}
+  {\Large\bfseries\color{dark} From Subspaces to Features: Mechanistic Analysis\par
+  of Language-Reasoning Interference via Sparse Autoencoders}\par\vspace{0.5em}
+  {\normalsize MIT 6.8610 Graduate NLP\quad|\quad Project Proposal\quad|\quad Spring 2026}\par\vspace{0.15em}
+  {\normalsize Karlo Vrancic \quad Anastasia Ahani \quad Riley Kong}
+\end{center}
+\vspace{0.4em}
+]
+
+\section{Motivation}
+
+Removing a model's own learned representations at inference time should degrade performance. Zhao et al.~\cite{zhao} showed the opposite: projecting language-specific components out of LLM hidden states consistently improves multilingual reasoning across 10 models and 11 languages, with particularly pronounced gains for low-resource languages. This NeurIPS 2025 result implies that language-specific representations actively interfere with reasoning circuits. Why this interference occurs remains mechanistically unexplained.
+
+Zhao et al.'s method decomposes hidden states via SVD into language-specific and language-agnostic subspaces, then projects out the language-specific direction: $\hat{h} = h - \lambda M_s^\top M_s h$, applied to the final input token representation across all layers. This subspace-level operation cannot identify which individual features drive the interference or explain how they disrupt reasoning. Meanwhile, sparse autoencoders (SAEs) decompose LLM activations into interpretable features at far finer granularity. Deng et al.~\cite{deng} showed that SAE features in multilingual LLMs naturally separate into language-specific and language-agnostic categories, with single-feature ablation affecting only the target language. Chou et al.~\cite{chou} demonstrated 90\% language-switching success by modifying one SAE feature. Neither study examines reasoning.
+
+We bridge these two lines of work. Using Gemma Scope 2 pre-trained SAEs~\cite{gemmascope} on Gemma 3 4B, we will: (1)~identify which individual SAE features are language-specific versus reasoning-specific via contrastive multilingual prompts, (2)~test whether targeted ablation of language-specific features reproduces Zhao et al.'s reasoning gains with greater surgical precision, and (3)~characterize the interference mechanism at the feature level.
+
+\section{Proposed Research}
+
+Our investigation will consist of three phases, each building on the previous.
+
+\textbf{Phase 1: Contrastive feature identification.} We extract SAE feature activations from Gemma 3 4B processing identical MGSM~\cite{mgsm} math problems in five typologically diverse languages: English, Chinese, Spanish, Bengali, and Swahili (3 language families, 3 scripts, high-to-low resource). For each problem, features activated across all five languages identify reasoning computations; features activated in only one language identify language-specific processing. We adapt Deng et al.'s monolinguality metric: for feature $s$ and language $L$, $\nu_s^L = \mu_s^L - \gamma_s^L$, where $\mu_s^L$ is the mean activation in $L$ and $\gamma_s^L$ is the mean across other languages. To connect this to reasoning, we compute mean monolinguality of active features per problem at each layer and test via logistic regression whether this predicts problem-level accuracy. This yields a feature taxonomy (language-specific, reasoning-specific, shared) across all 34 transformer layers. Residual stream SAEs at subset layers \{9, 17, 22, 29\} (at 25\%, 50\%, 65\%, 85\% model depth) with 64k feature width serve as primary targets; 16k-width SAEs at all layers provide full-depth coverage.
+
+\textbf{Phase 2: Causal validation.} We test three hypotheses. \textbf{H1}: SAE-targeted ablation of language-specific features reproduces Zhao et al.'s reasoning improvements. \textbf{H2}: targeted ablation achieves a better reasoning-fidelity trade-off than SVD-based projection, since it removes fewer features more precisely. \textbf{H3}: features at layers 17 and 22 (50\% and 65\% depth) account for the majority of interference, consistent with the three-phase model (early layers encode language, middle layers reason, late layers decode) established by Dumas et al.~\cite{dumas}, Wu et al.~\cite{wu}, and Wendler et al.~\cite{wendler}. A key methodological consideration: Zhao et al.'s projection operates on the final input token across all layers, whereas SAE features activate at multiple positions. We test ablation both at the final token only (matching Zhao et al.) and at all positions where language features activate, to isolate the effect of intervention granularity. We additionally test reasoning-feature amplification via activation steering, which disentangles whether improvement stems from removing language interference or from boosting reasoning signal.
+
+\textbf{Phase 3: Feature interaction analysis.} Identifying which features interfere is necessary but insufficient; we aim to explain \emph{how}. Using the Sparse Feature Circuits methodology~\cite{marks}, we trace information flow between language-specific and reasoning-specific features. Three competing hypotheses yield distinct measurable predictions: (a)~\emph{capacity competition}: ablating language features should increase activation magnitude of co-located reasoning features, as freed capacity allows stronger reasoning representations; (b)~\emph{circuit interference}: attribution graphs should reveal language features causally upstream of non-reasoning output components; (c)~\emph{attention disruption}: attention entropy over reasoning-relevant tokens should decrease after language feature ablation, indicating more focused information routing.
+
+\section{Related Work}
+
+\textbf{Language-reasoning disentanglement.} Zhao et al.~\cite{zhao} provide the empirical foundation: training-free language ablation improves reasoning across diverse models and languages. Etxaniz et al.~\cite{etxaniz} established the ``thinking in English'' phenomenon, showing that self-translating to English before reasoning consistently improves LLM performance, with the gap paradoxically larger for more capable models.
+
+\textbf{Multilingual representation structure.} Convergent evidence establishes a three-phase processing model: early layers encode language-specific input, middle layers operate in a shared concept space, late layers decode to the target language. Dumas et al.~\cite{dumas} demonstrated this via cross-lingual activation patching; Wu et al.~\cite{wu} formalized it as the ``Semantic Hub Hypothesis'' with causal interventions. Harrasse et al.~\cite{harrasse} confirmed the pattern using cross-layer transcoders, finding that English is not mechanistically privileged as a pivot; the dominant language's advantage stems from decoding pathways, not concept formation. Tang et al.~\cite{tang} showed language-specific neurons follow a U-shaped distribution concentrated in early and late layers, leaving middle layers most language-agnostic.
+
+\textbf{SAEs for multilingual analysis.} Deng et al.~\cite{deng} introduced a monolinguality metric for SAE features and showed that ablating language-specific features selectively degrades only the target language. Chou et al.~\cite{chou} achieved 90\% language control through single-feature steering. Brinkmann et al.~\cite{brinkmann} found that abstract grammatical concepts (number, gender, tense) are encoded in feature directions shared across 23 typologically diverse languages. Cho et al.~\cite{cho} identified task-focused SAE features whose amplification via steering improves multilingual zero-shot performance. No prior work connects SAE-identified language features to reasoning performance. This is our contribution.
+
+\textbf{Mechanistic interpretability.} We build on Sparse Feature Circuits~\cite{marks} for circuit-level causal analysis and Gemma Scope 2~\cite{gemmascope} for pre-trained JumpReLU SAEs at every layer of Gemma 3 4B. Resck et al.~\cite{resck} identify the intersection of mechanistic interpretability and multilingual NLP as significantly underexplored.
+
+\section{Evaluation}
+
+\textbf{Data.} MGSM~\cite{mgsm}: 250 grade-school math problems professionally translated into 11 languages. We evaluate on English, Chinese, Spanish, Bengali, and Swahili, selected to span 3 language families, 3 scripts, and the full resource spectrum. We expect sparser SAE feature activation for Bengali and Swahili, which is itself informative: if language-specific features are sparse for low-resource languages, this may explain why Zhao et al.'s gains are largest there. All experiments are inference-only.
+
+\textbf{Metrics.} Feature identification: per-layer monolinguality distributions and cross-language activation correlations. Causal validation: MGSM accuracy under each intervention, language fidelity (LaBSE similarity), per-language and per-layer breakdowns. Interaction analysis: causal effect sizes of individual features, attention entropy changes, and feature-to-feature attribution strengths.
+
+\textbf{Baselines.} (1)~Unmodified Gemma 3 4B, (2)~Zhao et al.'s SVD projection (replicated), (3)~random-feature ablation matching the count of ablated features, (4)~Deng et al.'s language-feature ablation without reasoning-specific targeting, (5)~English-only prompting (translate to English, solve, translate back~\cite{etxaniz}). If 5-language results are conclusive, we validate on the full 11-language MGSM.
+
+\section{Feasibility and Implementation Plan}
+
+\textbf{Infrastructure.} Wr run experiments on Gemma 3 4B. Gemma Scope 2 provides pre-trained SAEs at all 34 layers; no SAE training is needed.
+
+
+%\textbf{Libraries.} SAELens v6 for SAE loading and feature extraction. TransformerLens for activation hooks and causal interventions. Both support Gemma 3. nnsight available for remote execution on NDIF if needed.
+
+\textbf{Timeline (5 weeks).} Weeks 1--2: environment setup, Zhao et al.\ baseline replication, SAE feature extraction across 5 languages. Weeks 2--3: feature classification, monolinguality analysis, taxonomy construction. Weeks 3--4: causal ablation experiments, SVD vs.\ SAE-targeted comparison, reasoning amplification. Weeks 4--5: feature interaction analysis, paper writing.
+
+\textbf{Risk mitigation.} If SAE-targeted ablation does not improve reasoning, this is itself informative: it indicates the interference operates at a granularity SAEs do not decompose, pointing toward distributed subspace mechanisms rather than individual feature interference. The feature taxonomy and layer-wise causal analysis remain contributions regardless. If Gemma 3 4B underperforms on Bengali or Swahili, we substitute with higher-resource MGSM languages while preserving typological diversity.
+
+\vspace{0.6em}
+\begingroup
+\footnotesize
+\renewcommand{\section}[2]{}
+\begin{thebibliography}{15}
+
+\bibitem{zhao}
+W.~Zhao et al., ``When Less Language is More: Language-Reasoning Disentanglement,'' \textit{NeurIPS}, 2025.
+
+\bibitem{deng}
+B.~Deng et al., ``Unveiling Language-Specific Features in LLMs via Sparse Autoencoders,'' \textit{ACL}, 2025.
+
+\bibitem{chou}
+C.-T.~Chou et al., ``Causal Language Control via Sparse Feature Steering,'' \textit{arXiv:2507.13410}, 2025.
+
+\bibitem{gemmascope}
+C.~McDougall et al., ``Gemma Scope 2,'' Google DeepMind, 2025.
+
+\bibitem{mgsm}
+F.~Shi et al., ``Language Models are Multilingual Chain-of-Thought Reasoners,'' \textit{NeurIPS}, 2022.
+
+\bibitem{dumas}
+C.~Dumas et al., ``Separating Tongue from Thought,'' \textit{ACL}, 2025.
+
+\bibitem{wu}
+Z.~Wu et al., ``The Semantic Hub Hypothesis,'' \textit{ICLR}, 2025.
+
+\bibitem{wendler}
+C.~Wendler et al., ``Do Llamas Work in English?'' \textit{ACL}, 2024.
+
+\bibitem{marks}
+S.~Marks et al., ``Sparse Feature Circuits,'' \textit{ICLR}, 2025.
+
+\bibitem{etxaniz}
+J.~Etxaniz et al., ``Do Multilingual LMs Think Better in English?'' \textit{NAACL}, 2024.
+
+\bibitem{harrasse}
+A.~Harrasse et al., ``Tracing Multilingual Representations with Cross-Layer Transcoders,'' \textit{arXiv:2511.10840}, 2025.
+
+\bibitem{tang}
+T.~Tang et al., ``Language-Specific Neurons,'' \textit{ACL}, 2024.
+
+\bibitem{brinkmann}
+J.~Brinkmann et al., ``LLMs Share Representations of Latent Grammatical Concepts,'' \textit{NAACL}, 2025.
+
+\bibitem{cho}
+I.~Cho et al., ``Analyzing Multilingualism in LLMs with SAEs,'' \textit{COLM}, 2025.
+
+\bibitem{resck}
+L.~Resck et al., ``Explainability and Interpretability of Multilingual LLMs: A Survey,'' \textit{EMNLP}, 2025.
+
+\end{thebibliography}
+\endgroup
+
+\end{document}

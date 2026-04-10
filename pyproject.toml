@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "lang-reasoning-sae"
+version = "0.1.0"
+description = "Mechanistic analysis of language-reasoning interference via sparse autoencoders"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.3.0",
+    "transformers>=4.49.0",
+    "sae-lens>=5.9.0",
+    "nnsight>=0.4.0",
+    "datasets",
+    "sentence-transformers",
+    "scikit-learn",
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "tqdm",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ipykernel",
+    "jupyter",
+    "black",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+include = ["src*"]

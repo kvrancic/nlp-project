@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Results and data (large files)
+results/*.pt
+results/*.npy
+results/*.pkl
+results/*.json
+!results/.gitkeep
+data/
+*.safetensors
+
+# HuggingFace cache
+.cache/
+
+# Claude
+.claude/

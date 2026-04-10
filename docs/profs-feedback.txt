@@ -1,0 +1,17 @@
+Interesting project direction, must be published if done right. do it right. 
+
+Even doing much less if you fail can lead tto super interesting findings.
+
+Some observations:
+
+Training a supervised model that says if you point in this direction you look like Swahili, otherwise English
+
+Its expensive to get automatic labels for SAEs
+
+For a given SAE feature, how do you decide if it’s a Swahili feature versus reasoning feature? Use auto interpretability feature and see if someone labelled the kinds of inputs now which these features are active and then go to dataset and ask which are the SAE features that selectively light up for one feature or another.
+
+Even looking at the mismatch, figuring out what an SAE feature is.
+
+Identifying the Swahili features versus reasoning features by looking at what happens if you ablate them, performances on arithmetic, performance on perplexity on Swahili text generation goes up or down,
+If we labeling a reasoning feature disagree, then what is a reasoning feature? What kinds of inputs it tends to be active on? 
+There is a subset of neurons that are language specific that are interfering with the ability to answer the language problem.
