@@ -1,31 +1,52 @@
 """MGSM dataset loading, prompt formatting, and answer parsing."""
 
 import re
+import urllib.request
 
-from datasets import load_dataset
+from src.config import TARGET_LANGUAGES
 
-from src.config import MGSM_DATASET, TARGET_LANGUAGES
+# Original MGSM data from Google Research (TSV format, no dependencies needed)
+MGSM_BASE_URL = (
+    "https://raw.githubusercontent.com/google-research/url-nlp/main/mgsm/mgsm_{lang}.tsv"
+)
 
 
-def load_mgsm(languages: list[str] | None = None, split: str = "test") -> dict[str, list[dict]]:
-    """Load MGSM dataset for specified languages.
+def load_mgsm(languages: list[str] | None = None) -> dict[str, list[dict]]:
+    """Load MGSM test set directly from Google Research GitHub.
+
+    Downloads TSV files — no `datasets` library needed (avoids numpy
+    binary incompatibility issues on Colab).
 
     Returns:
         Dict mapping language code to list of examples.
-        Each example has keys: 'question', 'answer', 'answer_number'.
+        Each example has keys: 'question', 'answer', 'answer_number', 'language'.
     """
     if languages is None:
         languages = TARGET_LANGUAGES
 
     data = {}
     for lang in languages:
-        ds = load_dataset(MGSM_DATASET, lang, split=split)
+        url = MGSM_BASE_URL.format(lang=lang)
+        response = urllib.request.urlopen(url)
+        lines = response.read().decode("utf-8").strip().split("\n")
+
         examples = []
-        for row in ds:
+        for line in lines:
+            parts = line.split("\t")
+            if len(parts) < 2:
+                continue
+            question = parts[0].strip()
+            answer_raw = parts[1].strip()
+
+            # The Google Research TSV has just the bare numeric answer
+            try:
+                answer_number = float(answer_raw.replace(",", ""))
+            except ValueError:
+                answer_number = None
+
             examples.append({
-                "question": row["question"],
-                "answer": row["answer"],
-                "answer_number": row["answer_number"],
+                "question": question,
+                "answer_number": answer_number,
                 "language": lang,
             })
         data[lang] = examples

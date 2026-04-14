@@ -12,7 +12,6 @@ dependencies = [
     "transformers>=4.49.0",
     "sae-lens>=5.9.0",
     "nnsight>=0.4.0",
-    "datasets",
     "sentence-transformers",
     "scikit-learn",
     "numpy",

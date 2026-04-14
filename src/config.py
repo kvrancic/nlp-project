@@ -31,7 +31,6 @@ SAE_WIDTH_64K = 65536
 SAE_L0_TARGET = "medium"  # options: "small", "medium", "large"
 
 # ---------- Dataset ----------
-MGSM_DATASET = "juletxara/mgsm"
 TARGET_LANGUAGES = ["en", "zh", "es", "bn", "sw"]
 ALL_MGSM_LANGUAGES = ["en", "es", "fr", "de", "ru", "zh", "ja", "th", "sw", "bn", "te"]
 
