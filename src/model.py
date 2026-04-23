@@ -13,7 +13,7 @@ from src.config import (
     SAE_RELEASE_RES,
     SAE_SUBSET_LAYERS,
     SAE_WIDTH_16K,
-    SAE_WIDTH_64K,
+    SAE_WIDTH_65K,
 )
 
 load_dotenv()
@@ -62,7 +62,7 @@ def load_sae(
     Args:
         layer: Transformer layer index (0-33).
         width: SAE width (16384 or 65536).
-        l0_target: Sparsity level ("small", "medium", "large").
+        l0_target: Sparsity level ("small", "medium", "big").
         release: HuggingFace repo for SAEs.
         device: Device to load SAE on.
 
@@ -71,9 +71,9 @@ def load_sae(
     """
     from sae_lens import SAE
 
-    # Gemma Scope 2 SAE ID format
+    # Gemma Scope 2 SAE ID format: layer_{N}_width_{W}_l0_{SIZE}
     width_str = f"{width // 1000}k"
-    sae_id = f"layer_{layer}/width_{width_str}/average_l0_{_l0_to_approx(l0_target)}"
+    sae_id = f"layer_{layer}_width_{width_str}_l0_{l0_target}"
 
     sae, cfg_dict, sparsity = SAE.from_pretrained(
         release=release,
@@ -85,7 +85,7 @@ def load_sae(
 
 def load_saes_at_layers(
     layers: list[int] | None = None,
-    width: int = SAE_WIDTH_64K,
+    width: int = SAE_WIDTH_65K,
     l0_target: str = SAE_L0_TARGET,
     device: str = "cuda",
 ) -> dict:
@@ -111,17 +111,3 @@ def load_saes_at_layers(
     return saes
 
 
-def _l0_to_approx(l0_target: str) -> int:
-    """Map sparsity target name to approximate L0 value for SAE ID.
-
-    Note: These are approximate. The actual SAE IDs on HuggingFace use
-    the exact L0 value. We may need to adjust these after checking the
-    actual available SAE IDs in the repo.
-    """
-    # TODO: Verify exact L0 values available in the HF repo
-    mapping = {
-        "small": 10,
-        "medium": 50,
-        "large": 150,
-    }
-    return mapping.get(l0_target, 50)

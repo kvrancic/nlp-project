@@ -15,20 +15,23 @@ N_LAYERS = 34
 
 # ---------- SAE ----------
 # Gemma Scope 2 residual-stream SAEs for Gemma 3 4B IT
-SAE_RELEASE_RES = "google/gemma-scope-2-4b-it-res"
+# SAELens release name (NOT the HuggingFace repo_id)
+SAE_RELEASE_RES = "gemma-scope-2-4b-it-res"       # subset layers {9, 17, 22, 29}
+SAE_RELEASE_RES_ALL = "gemma-scope-2-4b-it-res-all"  # all 34 layers
 
-# Subset layers where 64k-width SAEs are available
+# Subset layers where 65k/262k-width SAEs are available
 SAE_SUBSET_LAYERS = [9, 17, 22, 29]
 
 # All 34 layers have 16k-width SAEs
 SAE_ALL_LAYERS = list(range(N_LAYERS))
 
-# SAE widths available
+# SAE widths available (numeric values for feature counts)
 SAE_WIDTH_16K = 16384
-SAE_WIDTH_64K = 65536
+SAE_WIDTH_65K = 65536
+SAE_WIDTH_262K = 262144
 
 # Default sparsity level
-SAE_L0_TARGET = "medium"  # options: "small", "medium", "large"
+SAE_L0_TARGET = "medium"  # options: "small", "medium", "big"
 
 # ---------- Dataset ----------
 TARGET_LANGUAGES = ["en", "zh", "es", "bn", "sw"]

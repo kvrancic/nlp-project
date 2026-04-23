@@ -5,7 +5,7 @@ MIT 6.8610 project analyzing why language-specific representations interfere wit
 
 ## Stack
 - Model: `google/gemma-3-4b-it`
-- SAEs: Gemma Scope 2 via SAELens (`google/gemma-scope-2-4b-it-res`)
+- SAEs: Gemma Scope 2 via SAELens (release: `gemma-scope-2-4b-it-res`, sae_id format: `layer_{N}_width_{W}_l0_{SIZE}`)
 - Interventions: nnsight (NOT TransformerLens — it doesn't support Gemma 3)
 - Compute: Colab Pro+ (A100) for experiments, local 36GB M3 Pro for development
 
@@ -18,7 +18,8 @@ MIT 6.8610 project analyzing why language-specific representations interfere wit
 
 ## Key Details
 - MGSM dataset: `juletxara/mgsm`, 5 languages: en, zh, es, bn, sw
-- SAE layers: {9, 17, 22, 29} for 64k width, all 34 layers for 16k
+- SAE layers: {9, 17, 22, 29} for 65k/262k width, all 34 layers for 16k
+- SAE L0 targets: small, medium, big
 - Gemma 3 4B has d_model=2560, 34 transformer layers
 - Use BF16 precision throughout
 
