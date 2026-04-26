@@ -1,38 +1,45 @@
 """Causal interventions: feature ablation and steering via nnsight."""
 
 import torch
-from nnsight import NNsight
 
 
 def directional_ablation(
     activation: torch.Tensor,
     feature_directions: torch.Tensor,
 ) -> torch.Tensor:
-    """Ablate specific SAE feature directions from an activation.
+    """Project the subspace spanned by `feature_directions` out of `activation`.
 
-    From Deng et al. / Arditi et al.:
-        x' = x - sum_i (d̂_i * d̂_i^T * x)
-    where d̂_i is the unit vector of SAE decoder column for feature i.
+    Computes x' = x - P_S x, where P_S is the orthogonal projector onto the
+    subspace spanned by the rows of `feature_directions`. SAE decoder columns
+    are unit-norm but generally not mutually orthogonal, so we orthonormalize
+    via QR before projecting — iterative single-direction subtraction would
+    leave residual mass in the subspace whenever the directions are correlated
+    (cf. Arditi et al. note that SAE-decoder ablation requires whitening for
+    multi-feature settings).
 
     Args:
         activation: Tensor of shape (..., d_model).
-        feature_directions: Tensor of shape (n_features, d_model) — the
-            decoder columns for features to ablate (not necessarily unit vectors;
-            we normalize internally).
+        feature_directions: Tensor of shape (n_features, d_model). For a single
+            direction this reduces to the standard rank-1 projection.
 
     Returns:
-        Modified activation with feature directions projected out.
+        Modified activation with `feature_directions`'s span projected out.
     """
-    # Normalize to unit vectors
-    directions = feature_directions / feature_directions.norm(dim=-1, keepdim=True)
+    if feature_directions.dim() == 1:
+        feature_directions = feature_directions.unsqueeze(0)
 
-    result = activation.clone()
-    for d in directions:
-        # Project out this direction: x' = x - (d^T x) * d
-        proj = torch.einsum("...d, d -> ...", result, d)
-        result = result - proj.unsqueeze(-1) * d
+    work_dtype = torch.float32
+    D = feature_directions.to(work_dtype).T  # (d_model, n_features)
 
-    return result
+    # QR yields Q with orthonormal columns spanning the same subspace as D.
+    # If the directions aren't full-rank, Q's extra columns sit in the
+    # null space of D and contribute zero projection — still correct.
+    Q, _ = torch.linalg.qr(D, mode="reduced")  # (d_model, k)
+
+    x = activation.to(work_dtype)
+    coeffs = x @ Q  # (..., k)
+    proj = coeffs @ Q.T  # (..., d_model)
+    return (x - proj).to(activation.dtype)
 
 
 def get_sae_decoder_directions(sae, feature_indices: list[int]) -> torch.Tensor:
@@ -48,67 +55,6 @@ def get_sae_decoder_directions(sae, feature_indices: list[int]) -> torch.Tensor:
     # SAELens stores decoder weights as W_dec of shape (n_features, d_model)
     W_dec = sae.W_dec.data  # (n_features, d_model)
     return W_dec[feature_indices]
-
-
-def run_with_ablation(
-    model,
-    tokenizer,
-    texts: list[str],
-    ablation_config: dict[int, torch.Tensor],
-    positions: str = "last",
-    max_new_tokens: int = 512,
-    device: str = "cuda",
-) -> list[str]:
-    """Run model generation with feature ablation at specified layers.
-
-    Uses nnsight to hook into the model's forward pass and modify
-    residual stream activations.
-
-    Args:
-        model: HuggingFace model.
-        tokenizer: Tokenizer.
-        texts: Input texts.
-        ablation_config: Dict mapping layer index to tensor of feature
-            directions to ablate, shape (n_features, d_model).
-        positions: "last" to ablate only the final input token,
-            "all" to ablate at all positions.
-        max_new_tokens: Max tokens to generate.
-        device: Device.
-
-    Returns:
-        List of generated text outputs.
-    """
-    nn_model = NNsight(model)
-    outputs = []
-
-    for text in texts:
-        inputs = tokenizer(text, return_tensors="pt").to(device)
-        seq_len = inputs["input_ids"].shape[1]
-
-        with nn_model.trace(inputs, scan=False, validate=False):
-            for layer, directions in ablation_config.items():
-                directions = directions.to(device)
-                resid = nn_model.model.layers[layer].output[0]
-
-                if positions == "last":
-                    # Only ablate the final token position
-                    last_pos_act = resid[:, -1, :]
-                    ablated = directional_ablation(last_pos_act, directions)
-                    resid[:, -1, :] = ablated
-                else:
-                    # Ablate all positions
-                    ablated = directional_ablation(resid, directions)
-                    nn_model.model.layers[layer].output[0][:] = ablated
-
-            # Get output logits
-            logits = nn_model.output.logits.save()
-
-        # For generation, we need a different approach — nnsight trace
-        # doesn't support generate() directly. We'll use hooks instead.
-        # This is a forward-pass-only version for logit analysis.
-        # For full generation with ablation, see run_generate_with_hooks below.
-
-    return outputs
 
 
 def run_generate_with_hooks(
