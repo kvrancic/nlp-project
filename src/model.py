@@ -54,6 +54,17 @@ def load_model_and_tokenizer(
 ) -> tuple:
     """Load Gemma 3 4B IT model and tokenizer.
 
+    Gemma 3 4B IT is multimodal (SigLIP vision tower + text decoder).
+    AutoModelForCausalLM resolves it to `Gemma3ForConditionalGeneration`,
+    which loads the vision tower we never use and nests the decoder layers
+    at `.model.language_model.layers`.
+
+    Per HF docs, `Gemma3ForCausalLM` was added precisely "to load the vision
+    language models like they were language models (omitting the vision
+    tower)". We use it directly when available so the model exposes
+    `.model.layers` cleanly, saves ~400MB VRAM, and the rest of the pipeline
+    Just Works. Falls back to AutoModel for non-Gemma-3 configs.
+
     Returns:
         (model, tokenizer) tuple.
     """
@@ -68,9 +79,16 @@ def load_model_and_tokenizer(
     torch_dtype = getattr(torch, dtype)
 
     tokenizer = AutoTokenizer.from_pretrained(model_id, token=token)
-    model = AutoModelForCausalLM.from_pretrained(
+
+    try:
+        from transformers import Gemma3ForCausalLM
+        model_cls = Gemma3ForCausalLM
+    except ImportError:
+        model_cls = AutoModelForCausalLM
+
+    model = model_cls.from_pretrained(
         model_id,
-        torch_dtype=torch_dtype,
+        dtype=torch_dtype,
         device_map=device_map,
         token=token,
     )
