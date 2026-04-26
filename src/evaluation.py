@@ -4,6 +4,7 @@ import torch
 from tqdm import tqdm
 
 from src.data import compute_accuracy, parse_answer_number
+from src.model import get_decoder_layers
 
 
 def evaluate_mgsm(
@@ -38,8 +39,9 @@ def evaluate_mgsm(
     # Register hooks if provided
     handles = []
     if hooks:
+        decoder_layers = get_decoder_layers(model)
         for layer_idx, hook_fn in hooks:
-            handle = model.model.layers[layer_idx].register_forward_hook(hook_fn)
+            handle = decoder_layers[layer_idx].register_forward_hook(hook_fn)
             handles.append(handle)
 
     predictions = []

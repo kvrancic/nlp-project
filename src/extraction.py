@@ -4,6 +4,7 @@ import torch
 from tqdm import tqdm
 
 from src.config import BATCH_SIZE, N_LAYERS
+from src.model import get_decoder_layers
 
 
 def extract_residual_activations(
@@ -54,12 +55,13 @@ def extract_residual_activations(
 
         seq_lens = inputs["attention_mask"].sum(dim=1)  # actual lengths
 
+        nn_layers = get_decoder_layers(nn_model)  # works through nnsight proxy
         with nn_model.trace(inputs, scan=False, validate=False):
             saved = {}
             for layer in layers:
-                # Access residual stream output after each transformer block
-                # Gemma 3 architecture: model.model.layers[i]
-                output = nn_model.model.layers[layer].output[0]
+                # Residual stream output after each decoder block. Path varies
+                # by architecture (Gemma 3 multimodal hides it one level deeper).
+                output = nn_layers[layer].output[0]
                 saved[layer] = output.save()
 
         for layer in layers:

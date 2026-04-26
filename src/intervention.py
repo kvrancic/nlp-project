@@ -2,6 +2,8 @@
 
 import torch
 
+from src.model import get_decoder_layers
+
 
 def directional_ablation(
     activation: torch.Tensor,
@@ -110,13 +112,14 @@ def run_generate_with_hooks(
         return hook_fn
 
     outputs = []
+    decoder_layers = get_decoder_layers(model)
     for text in texts:
         inputs = tokenizer(text, return_tensors="pt").to(device)
         input_len = inputs["input_ids"].shape[1]
 
         # Register hooks
         for layer_idx, directions in ablation_config.items():
-            handle = model.model.layers[layer_idx].register_forward_hook(
+            handle = decoder_layers[layer_idx].register_forward_hook(
                 make_hook(directions, positions, input_len)
             )
             handles.append(handle)

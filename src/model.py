@@ -19,6 +19,34 @@ from src.config import (
 load_dotenv()
 
 
+# Gemma 3 4B IT is multimodal: model.model is Gemma3Model, which wraps both
+# language_model (Gemma3TextModel with .layers) and vision_tower. Other HF
+# decoder LMs put .layers directly on model.model. This getter probes both.
+_LAYER_PATHS = (
+    ("model", "layers"),                    # Llama / Gemma 2 / Mistral / etc.
+    ("model", "language_model", "layers"),  # Gemma 3 multimodal CausalLM
+    ("language_model", "model", "layers"),  # alternative multimodal wrapping
+)
+
+
+def get_decoder_layers(obj):
+    """Return the ModuleList of transformer decoder layers from a HF model
+    or any wrapper that proxies attribute access (e.g. an nnsight NNsight).
+    """
+    for path in _LAYER_PATHS:
+        try:
+            cur = obj
+            for attr in path:
+                cur = getattr(cur, attr)
+            return cur
+        except AttributeError:
+            continue
+    raise AttributeError(
+        f"Could not find decoder layers on {type(obj).__name__}. "
+        f"Tried paths: {[' .'.join(p) for p in _LAYER_PATHS]}"
+    )
+
+
 def load_model_and_tokenizer(
     model_id: str = MODEL_ID,
     device_map: str = "auto",
