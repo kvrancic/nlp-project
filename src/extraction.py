@@ -1,10 +1,13 @@
-"""Activation extraction pipeline using nnsight."""
+"""Activation extraction pipeline.
+
+Uses the HuggingFace `output_hidden_states=True` path -- robust across
+transformers versions and avoids nnsight's BatchEncoding-as-positional issue.
+"""
 
 import torch
 from tqdm import tqdm
 
 from src.config import BATCH_SIZE, N_LAYERS
-from src.model import get_decoder_layers
 
 
 def extract_residual_activations(
@@ -18,30 +21,31 @@ def extract_residual_activations(
 ) -> dict[int, torch.Tensor]:
     """Extract residual stream activations at specified layers.
 
-    Uses nnsight for clean access to model internals.
+    Pads batches with the tokenizer's pad token (left- or right-padded as
+    configured). Computes per-example sequence lengths from `attention_mask`
+    so 'last' picks the final REAL token, not padding.
 
     Args:
-        model: The loaded HuggingFace model (wrapped in nnsight or raw).
-        tokenizer: Tokenizer.
-        texts: List of input texts.
-        layers: Layer indices to extract from. None = all layers.
-        batch_size: Batch size for processing.
-        positions: Which token positions to extract.
-            "last" = final token only (for Zhao et al. baseline).
-            "all" = all positions.
-        device: Device.
+        model: HuggingFace causal LM (handles Gemma 3 multimodal nesting too,
+            since we always read from `output.hidden_states`).
+        tokenizer: matching tokenizer (must have a pad_token set).
+        texts: input prompts.
+        layers: layer indices to extract from. None = all layers.
+        batch_size: forward-pass batch size.
+        positions: "last" returns (n_texts, d_model); "all" returns
+            (n_texts, seq_len, d_model) with right-padding preserved.
+        device: target device for the forward pass.
 
     Returns:
-        Dict mapping layer index to tensor of shape:
-            (n_texts, d_model) if positions="last"
-            (n_texts, seq_len, d_model) if positions="all"
+        Dict mapping layer index to a CPU tensor of activations.
     """
-    from nnsight import NNsight
-
     if layers is None:
         layers = list(range(N_LAYERS))
+    if tokenizer.pad_token is None:
+        # Defensive: we can't batch without a pad token. Caller usually sets
+        # this once at the top of a notebook, but cover the case.
+        tokenizer.pad_token = tokenizer.eos_token
 
-    nn_model = NNsight(model)
     all_activations = {layer: [] for layer in layers}
 
     for i in tqdm(range(0, len(texts), batch_size), desc="Extracting activations"):
@@ -53,32 +57,36 @@ def extract_residual_activations(
             truncation=True,
         ).to(device)
 
-        seq_lens = inputs["attention_mask"].sum(dim=1)  # actual lengths
+        seq_lens = inputs["attention_mask"].sum(dim=1)  # (B,) actual lengths
 
-        nn_layers = get_decoder_layers(nn_model)  # works through nnsight proxy
-        with nn_model.trace(inputs, scan=False, validate=False):
-            saved = {}
-            for layer in layers:
-                # Residual stream output after each decoder block. Path varies
-                # by architecture (Gemma 3 multimodal hides it one level deeper).
-                output = nn_layers[layer].output[0]
-                saved[layer] = output.save()
+        with torch.no_grad():
+            outputs = model(
+                **inputs,
+                output_hidden_states=True,
+                use_cache=False,
+            )
+
+        # hidden_states is a tuple of (num_hidden_layers + 1) tensors:
+        # hidden_states[0] = post-embedding, hidden_states[i+1] = output of layer i.
+        hidden_states = outputs.hidden_states
 
         for layer in layers:
-            acts = saved[layer].value  # (batch, seq, d_model)
+            acts = hidden_states[layer + 1]  # (B, T, d_model)
             if positions == "last":
-                # Gather the last real token (not padding) for each example
-                last_positions = seq_lens - 1  # 0-indexed
+                # Gather the last *real* token per example (skip padding).
                 batch_acts = torch.stack([
-                    acts[b, last_positions[b].item()]
+                    acts[b, seq_lens[b].item() - 1]
                     for b in range(acts.shape[0])
-                ])  # (batch, d_model)
+                ])  # (B, d_model)
             else:
-                batch_acts = acts  # (batch, seq, d_model)
+                batch_acts = acts  # (B, T, d_model) including pad positions
+            all_activations[layer].append(batch_acts.detach().cpu())
 
-            all_activations[layer].append(batch_acts.cpu())
+        # outputs holds full hidden_states tuple in VRAM until next iter
+        del outputs, hidden_states
+        if device == "cuda":
+            torch.cuda.empty_cache()
 
-    # Concatenate all batches
     for layer in layers:
         all_activations[layer] = torch.cat(all_activations[layer], dim=0)
 
