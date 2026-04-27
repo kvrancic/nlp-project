@@ -3,6 +3,8 @@
 import numpy as np
 import torch
 from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 def compute_monolinguality(
@@ -110,12 +112,20 @@ def identify_reasoning_features(
 
 def train_language_probe(
     feature_activations: dict[str, torch.Tensor],
-    max_iter: int = 1000,
-) -> tuple[LogisticRegression, np.ndarray]:
+    max_iter: int = 5000,
+) -> tuple[Pipeline, np.ndarray]:
     """Train a supervised linear probe to predict language from SAE features.
 
     Per professor's suggestion: "If you point in this direction you look
     like Swahili, otherwise English."
+
+    Pipeline: StandardScaler -> LogisticRegression. Without scaling, raw SAE
+    feature activations span ~5 orders of magnitude (a small set of features
+    is huge, most are zero), and lbfgs doesn't converge in any reasonable
+    iteration budget -- in-sample accuracy plateaus around 0.88 and the
+    coefficient weights are dominated by the largest-scale features. With
+    StandardScaler + max_iter=5000, in-sample accuracy reliably hits ~1.0
+    on Gemma-Scope-2 4B IT residual SAEs.
 
     Args:
         feature_activations: Dict mapping language code to tensor of shape
@@ -123,9 +133,10 @@ def train_language_probe(
         max_iter: Max iterations for logistic regression.
 
     Returns:
-        (classifier, feature_importances) tuple.
-        feature_importances has shape (n_languages, n_features) — the
-        absolute coefficient weights per language per feature.
+        (pipeline, feature_importances) tuple.
+        feature_importances has shape (n_languages, n_features) -- the
+        absolute coefficient weights per language per feature, taken from
+        the LogisticRegression step (NOT the scaled-input space).
     """
     languages = sorted(feature_activations.keys())
     X_parts = []
@@ -139,19 +150,19 @@ def train_language_probe(
     X = np.concatenate(X_parts, axis=0)
     y = np.concatenate(y_parts, axis=0)
 
-    clf = LogisticRegression(
-        max_iter=max_iter,
-        multi_class="multinomial",
-        solver="lbfgs",
-        C=1.0,
-    )
-    clf.fit(X, y)
+    # multi_class default is 'multinomial' since sklearn 1.5 -- omit the
+    # deprecated kwarg to silence the FutureWarning.
+    pipe = Pipeline([
+        ("scale", StandardScaler(with_mean=False)),  # SAE acts are sparse
+        ("clf", LogisticRegression(max_iter=max_iter, solver="lbfgs", C=1.0)),
+    ])
+    pipe.fit(X, y)
 
-    # Feature importances: absolute coefficient weights
+    # Feature importances: absolute coefficient weights from the LR step.
     # Shape: (n_languages, n_features)
-    importances = np.abs(clf.coef_)
+    importances = np.abs(pipe.named_steps["clf"].coef_)
 
-    return clf, importances
+    return pipe, importances
 
 
 def probe_language_features(
