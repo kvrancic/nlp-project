@@ -93,11 +93,15 @@ def run_generate_with_hooks(
         directions_dev = directions.to(device)
 
         def hook_fn(module, input, output):
-            hidden_states = output[0]  # (batch, seq, d_model)
+            # Gemma 3 decoder layers return a raw tensor, not a tuple.
+            if isinstance(output, torch.Tensor):
+                hidden_states = output
+                is_tuple = False
+            else:
+                hidden_states = output[0]
+                is_tuple = True
 
             if pos_mode == "last":
-                # During generation, the input grows. We only want to
-                # ablate at the original last input position.
                 if hidden_states.shape[1] >= input_len:
                     pos = input_len - 1
                     hidden_states[:, pos, :] = directional_ablation(
@@ -105,9 +109,10 @@ def run_generate_with_hooks(
                     )
             else:
                 hidden_states = directional_ablation(hidden_states, directions_dev)
-                output = (hidden_states,) + output[1:]
 
-            return (hidden_states,) + output[1:]
+            if is_tuple:
+                return (hidden_states,) + output[1:]
+            return hidden_states
 
         return hook_fn
 
