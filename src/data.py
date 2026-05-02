@@ -94,35 +94,47 @@ def parse_answer_number(model_output: str) -> float | None:
     text = model_output.strip()
 
     # Pattern 1: "#### <number>"
-    match = re.search(r"####\s*([\d,]+(?:\.\d+)?)", text)
+    match = re.search(r"####\s*(-?\d[\d,]*(?:\.\d+)?)", text)
     if match:
-        return _parse_num(match.group(1))
+        parsed = _parse_num(match.group(1))
+        if parsed is not None:
+            return parsed
 
     # Pattern 2: "The answer is <number>" (multilingual variants)
     answer_patterns = [
-        r"[Tt]he answer is\s*([\d,]+(?:\.\d+)?)",
-        r"[Aa]nswer[:\s]*([\d,]+(?:\.\d+)?)",
-        r"答案[是为：:]\s*([\d,]+(?:\.\d+)?)",        # Chinese
-        r"[Rr]espuesta[:\s]*([\d,]+(?:\.\d+)?)",       # Spanish
-        r"উত্তর[:\s]*([\d,]+(?:\.\d+)?)",                # Bengali
-        r"[Jj]ibu[:\s]*([\d,]+(?:\.\d+)?)",            # Swahili
+        r"[Tt]he answer is\s*(-?\d[\d,]*(?:\.\d+)?)",
+        r"[Aa]nswer[:\s]*(-?\d[\d,]*(?:\.\d+)?)",
+        r"答案[是为：:]\s*(-?\d[\d,]*(?:\.\d+)?)",        # Chinese
+        r"[Rr]espuesta[:\s]*(-?\d[\d,]*(?:\.\d+)?)",       # Spanish
+        r"উত্তর[:\s]*(-?\d[\d,]*(?:\.\d+)?)",                # Bengali
+        r"[Jj]ibu[:\s]*(-?\d[\d,]*(?:\.\d+)?)",            # Swahili
     ]
     for pattern in answer_patterns:
         match = re.search(pattern, text)
         if match:
-            return _parse_num(match.group(1))
+            parsed = _parse_num(match.group(1))
+            if parsed is not None:
+                return parsed
 
     # Fallback: last number in text
-    numbers = re.findall(r"[\d,]+(?:\.\d+)?", text)
-    if numbers:
-        return _parse_num(numbers[-1])
+    numbers = re.findall(r"-?\d[\d,]*(?:\.\d+)?", text)
+    for candidate in reversed(numbers):
+        parsed = _parse_num(candidate)
+        if parsed is not None:
+            return parsed
 
     return None
 
 
-def _parse_num(s: str) -> float:
+def _parse_num(s: str) -> float | None:
     """Parse a number string, handling commas."""
-    return float(s.replace(",", ""))
+    normalized = s.replace(",", "").strip()
+    if not normalized:
+        return None
+    try:
+        return float(normalized)
+    except ValueError:
+        return None
 
 
 def compute_accuracy(predictions: list[float | None], gold: list[float]) -> float:

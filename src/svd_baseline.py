@@ -60,7 +60,10 @@ def compute_language_subspace(
     M_a = M_a_vec / M_a_vec.norm()  # normalized
 
     # Step 5: Final SVD on re-orthogonalized residual
-    residual2 = M_prime - M_a @ ones.T  # (d_model, n_languages)
+    # Project out the M_a direction from each column of M_prime so that
+    # the resulting M_s is orthogonal to M_a.
+    proj_coeffs = M_a.T @ M_prime  # (1, n_languages)
+    residual2 = M_prime - M_a @ proj_coeffs  # (d_model, n_languages)
     U2, S2, _ = torch.linalg.svd(residual2, full_matrices=False)
     M_s = U2[:, :rank]  # (d_model, rank)
 
@@ -121,8 +124,6 @@ def create_svd_hooks(
     hooks = {}
 
     for layer_idx, M_s in M_s_per_layer.items():
-        M_s_dev = M_s.to(device)
-
         if layer_idx in middle_layers:
             lam = lambda_middle
         elif layer_idx in higher_layers:
@@ -130,24 +131,112 @@ def create_svd_hooks(
         else:
             continue  # skip layers outside intervention range
 
-        def make_hook(m_s, l):
+        def make_hook(m_s_raw, l, dev):
+            m_s = None
+
             def hook_fn(module, input, output):
-                hidden_states = output[0]
+                nonlocal m_s
+                hidden_states = output if isinstance(output, torch.Tensor) else output[0]
+                if m_s is None:
+                    m_s = m_s_raw.to(dtype=hidden_states.dtype, device=dev)
                 if input_length is not None:
-                    # Only modify final input token
                     pos = input_length - 1
                     if hidden_states.shape[1] > pos:
                         hidden_states[:, pos, :] = project_out_language(
                             hidden_states[:, pos, :], m_s, l
                         )
                 else:
-                    hidden_states = project_out_language(hidden_states, m_s, l)
-                return (hidden_states,) + output[1:]
+                    projected = project_out_language(hidden_states, m_s, l)
+                    hidden_states.copy_(projected)
             return hook_fn
 
-        hooks[layer_idx] = make_hook(M_s_dev, lam)
+        hooks[layer_idx] = make_hook(M_s, lam, device)
 
     return hooks
+
+
+def generate_with_svd_intervention(
+    model,
+    tokenizer,
+    input_ids: torch.Tensor,
+    attention_mask: torch.Tensor,
+    M_s_per_layer: dict[int, torch.Tensor],
+    lambda_middle: float,
+    lambda_higher: float,
+    max_new_tokens: int = 512,
+    middle_layers: list[int] | None = None,
+    higher_layers: list[int] | None = None,
+    device: str = "cuda",
+) -> torch.Tensor:
+    """Generate with SVD projection applied during the prefill pass only.
+
+    Avoids forward hook + model.generate() incompatibilities by running
+    the hooked prefill as a plain forward pass, then continuing generation
+    unhooked using the resulting KV cache.
+    """
+    from src.model import get_decoder_layers
+
+    if middle_layers is None:
+        middle_layers = ZHAO_MIDDLE_LAYERS
+    if higher_layers is None:
+        higher_layers = ZHAO_HIGHER_LAYERS
+
+    decoder_layers = get_decoder_layers(model)
+    input_length = input_ids.shape[1]
+
+    hook_dict = create_svd_hooks(
+        M_s_per_layer=M_s_per_layer,
+        lambda_middle=lambda_middle,
+        lambda_higher=lambda_higher,
+        input_length=input_length,
+        middle_layers=middle_layers,
+        higher_layers=higher_layers,
+        device=device,
+    )
+
+    handles = [
+        decoder_layers[layer].register_forward_hook(fn)
+        for layer, fn in hook_dict.items()
+    ]
+
+    try:
+        with torch.no_grad():
+            outputs = model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                use_cache=True,
+            )
+    finally:
+        for h in handles:
+            h.remove()
+
+    past_key_values = outputs.past_key_values
+    next_token_logits = outputs.logits[:, -1, :]
+    next_token = next_token_logits.argmax(dim=-1, keepdim=True)
+
+    generated = [next_token]
+    eos_id = tokenizer.eos_token_id
+
+    for _ in range(max_new_tokens - 1):
+        if next_token.item() == eos_id:
+            break
+        new_mask = torch.cat(
+            [attention_mask, torch.ones_like(next_token)], dim=1
+        )
+        with torch.no_grad():
+            outputs = model(
+                input_ids=next_token,
+                attention_mask=new_mask,
+                past_key_values=past_key_values,
+                use_cache=True,
+            )
+        past_key_values = outputs.past_key_values
+        next_token_logits = outputs.logits[:, -1, :]
+        next_token = next_token_logits.argmax(dim=-1, keepdim=True)
+        generated.append(next_token)
+        attention_mask = new_mask
+
+    return torch.cat([input_ids, torch.cat(generated, dim=1)], dim=1)
 
 
 def grid_search_lambda(
