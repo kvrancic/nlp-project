@@ -170,37 +170,120 @@ following the professor's "use 3 methods, disagreement is a finding" guidance:
 
 ### Artifacts
 
-- `phase1_features.pt` (4.3 MB): saved to Google Drive
-  `/MyDrive/nlp-project-results/phase1_features.pt` and ephemerally to Colab
-  `/content/nlp-project/results/phase1_features.pt`. **Not in repo.** Phase 2
-  loads from Drive.
+- `results/phase1_features.pt` (4.3 MB): **now committed to repo** (was previously
+  Drive-only; pulled in 2026-05-05 from teammate's results bundle). Phase 2
+  loads from this path.
 - `notebooks/runs/02_feature_extraction.ipynb`: executed notebook with all
   cell outputs (figures inline) — version-controlled snapshot of this run.
 - Figures saved to `results/figures/` on Colab session (transient).
 
 ---
 
-## Phase 2 — Causal ablation (pending)
+## Phase 2 — Causal ablation
 
-### Phase 2a: Zhao SVD baseline (`03_zhao_baseline.ipynb`)
+### Phase 2a: Zhao SVD baseline (notebook 03, complete)
 
-**Status:** code complete, not yet run on Colab. Estimated 6–7h.
+**Status:** complete. Run by teammate on Colab A100, 2026-05-02. Artifact
+`results/phase2_zhao_baseline.pt` (10 MB) now in repo.
 
-What it does:
+What it ran:
 1. Per-language mean residuals at all 34 layers.
-2. SVD language subspaces ranks {2, 3, 4}.
-3. Unmodified baseline on full 1250 problems.
+2. SVD language subspaces at ranks {2, 3, 4}.
+3. Unmodified baseline on full 1250 problems (250 × 5 langs).
 4. 4-config sensitivity sweep on 50-prompt dev: (λ_mid, λ_hi) ∈
-   {(0.2,−0.2), (0.1,−0.2), (0.3,−0.2), (0.2,0.0)}, rank=3.
-5. Best Zhao config on full 1250 problems.
+   {(0.2,−0.2), (0.1,−0.2), (0.3,−0.2), (0.2, 0.0)}, rank fixed at 3.
+5. Best Zhao config on full 1250 problems + langdetect-based language fidelity.
 
-Expected paste-back: baseline avg, best (λ_mid, λ_hi, rank), Zhao avg, per-lang
-deltas. Will populate this section once results land.
+Layer split: middle = layers 10–23, higher = layers 24–32 (per `config`).
+
+#### Headline numbers
+
+**Per-language MGSM accuracy (greedy, 250 problems each):**
+
+| Language | Baseline | Zhao  | Δ (Zhao − base) |
+|----------|----------|-------|------------------|
+| en       | 0.580    | 0.632 | **+0.052**       |
+| zh       | 0.624    | 0.624 | +0.000           |
+| es       | 0.568    | 0.600 | **+0.032**       |
+| bn       | 0.564    | 0.564 | +0.000           |
+| sw       | 0.320    | 0.332 | +0.012           |
+| **Avg**  | **0.531** | **0.550** | **+0.019**  |
+
+**Best Zhao config:** λ_middle = 0.2, λ_higher = 0.0, rank = 3.
+
+**Language fidelity (langdetect on first 300 chars of generation):**
+
+| Language | Baseline | Zhao  | Δ        |
+|----------|----------|-------|----------|
+| en       | 1.000    | 0.964 | −0.036   |
+| zh       | 0.928    | 0.859 | **−0.069** |
+| es       | 0.996    | 0.940 | −0.056   |
+| bn       | 1.000    | 0.976 | −0.024   |
+| sw       | 0.904    | 0.936 | +0.032   |
+
+#### Interpretation
+
+1. **Modest aggregate gain (+1.9 pp), highly uneven by language.** The Zhao
+   intervention reproduces the directional finding (interference exists, can
+   be partly removed) but the effect is concentrated in en/es. Bengali and
+   Mandarin are unmoved; Swahili moves only barely. This pattern is
+   consistent with the Phase 1 monolinguality story: late-layer language
+   specificity in zh/bn/sw is so strong (top-1 ν reaches 5293 for sw at L29)
+   that linear-subspace projection can't fully neutralize it.
+
+2. **Language fidelity drops 4–7 pp in 4 of 5 languages.** This is the
+   tradeoff Zhao's method buys: nudging the residual toward the
+   language-agnostic mean increases code-switching/hallucination of other
+   languages. **Direct evidence for H2** — SAE ablation has the opportunity
+   to do better here because it can target individual features rather than
+   the whole subspace.
+
+3. **Best λ_higher = 0.0 sits at the grid corner.** The sweep tested
+   λ_higher ∈ {−0.2, 0.0} only, and the optimum landed at the boundary.
+   This means the true optimum may be at λ_higher > 0 (positive projection,
+   opposite the Zhao prior of removing higher-layer language). Documenting
+   as a known limitation for the paper; expanding the grid would cost
+   another ~6h on Colab. Defer unless reviewers flag it.
+
+4. **Sweep was 4-config (not 25 as originally planned).** Compute budget
+   constraint. The 4 configs sweep λ_middle around 0.2 (the Zhao paper's
+   value) plus one λ_higher=0 corner. Conclusions hold but the search is
+   coarse.
+
+5. **Plot bug, not data bug.** Cell 21's `fig5_zhao_baseline.png` failed to
+   render with a KeyError on 'en' — this is a plotting bug (likely a
+   variable-shadowing issue from cell re-runs). All underlying dicts in the
+   saved .pt are intact and correct (verified by re-loading). The bar chart
+   gets regenerated cleanly in `06_paper_figures.ipynb`.
+
+#### Open questions for Phase 2b to answer
+
+- Can SAE single-feature ablation match or beat the +0.019 aggregate gain?
+- Crucially: can it beat Zhao on **language fidelity** while matching or
+  exceeding accuracy gains? (H2's headline claim.)
+- Why don't bn/zh respond to the SVD intervention? Is it because their
+  language signal is non-linear in the residual (so linear projection is
+  insufficient), or because the means are degenerate at these layers?
+
+#### Artifacts
+
+- `results/phase2_zhao_baseline.pt` (10 MB): committed to repo. Keys:
+  `config`, `per_lang_mean`, `M_s_by_rank_layer`, `baseline_results`,
+  `sweep_results`, `zhao_test`, `language_fidelity`, `baseline_avg`,
+  `zhao_avg`.
+- `results/phase2_*_partial.pt`: local-only checkpoints (gitignored).
+- `notebooks/runs/03_zhao_baseline.ipynb`: executed snapshot with all
+  outputs and figures.
 
 ### Phase 2b: SAE causal ablation (`04_causal_ablation.ipynb`)
 
-**Status:** code complete, blocked on 2a. Tests H1, H2, H3 + professor's causal
-feature-definition methodology. K_VALUES = [1, 5, 10, 20], primary layer = 17.
+### Phase 2b: SAE causal ablation (`04_causal_ablation.ipynb`)
+
+**Status:** code complete, ready to run on Prime Intellect H100 80GB
+(~5–6h, ~$15–20). Tests H1, H2, H3 + professor's causal feature-definition
+methodology. K_VALUES = [1, 5, 10, 20], primary layer = 17. Loads
+`results/phase2_zhao_baseline.pt` for H2 comparison. Will save to
+`results/phase2_ablation.pt`.
 
 ---
 
@@ -227,7 +310,7 @@ figures + LaTeX-ready tables + appends to this `findings.md`.
 | Hypothesis | Claim | Evidence so far | Verdict |
 |------------|-------|-----------------|---------|
 | H1 | Top-k SAE language-feature ablation reproduces Zhao SVD's accuracy gain | Phase 2 pending | — |
-| H2 | SAE ablation preserves output language fidelity better than SVD | Phase 2 pending | — |
+| H2 | SAE ablation preserves output language fidelity better than SVD | Zhao baseline shows fidelity drops 4–7 pp in 4/5 langs (zh worst at −0.069). SAE comparison pending in Phase 2b | Bar set, awaits SAE side |
 | H3 | Ablation gain is layer-dependent, peaks at middle layers | Reasoning-feature drop 34→19→18→6 supports late-layer language specificity; consistent with H3 prediction but not yet causal | Weak prior support |
 
 ---

@@ -32,7 +32,13 @@ results/*.pt
 results/*.npy
 results/*.pkl
 results/*.json
+results/*.zip
 !results/.gitkeep
+# Canonical phase artifacts: commit these
+!results/phase1_features.pt
+!results/phase2_zhao_baseline.pt
+!results/phase2_ablation.pt
+!results/phase3_interaction.pt
 data/
 *.safetensors
 
