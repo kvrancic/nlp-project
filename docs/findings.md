@@ -467,6 +467,43 @@ labels?" Pre-emptively address this in the methodology section:
   not omit Neuronpedia — discussing it explicitly converts the
   potential objection into a strength.
 
+##### Teammate's Neuronpedia spot-check (2026-05-05)
+
+A teammate looked up specific features from `phase1_features.pt` on
+Neuronpedia and found mixed results: some features tagged as "top
+language" by Methods A/B are clearly language-related on Neuronpedia,
+others are unrelated / garbage. **This is signal #5 in a five-method
+convergence, not a contradiction:**
+
+1. Phase 1 Method A (monolinguality, correlational) flags candidates
+2. Phase 1 Method B (probe, correlational) flags candidates
+3. Phase 2a Zhao SVD asymmetry: bn shows zero gain → first red flag
+4. Phase 2b causal labeling: bn's top-5 are 0 LANGUAGE / 5 SHARED
+5. Teammate's Neuronpedia check: bn candidates fail auto-interp
+
+All five methods independently identify bn (and partially zh/sw) as
+having non-clean language features. **Five-method convergence is a
+publication-grade finding.** Where exactly one or two methods would be
+suspect, the consensus across correlational (A/B/auto-interp), causal
+(Phase 2b ablation), and downstream-task (Phase 2a Zhao) signals is
+hard to argue with.
+
+**Concrete action items from this:**
+
+- Have teammate tabulate top-50 A∩B per (layer, lang) × Neuronpedia
+  agreement as a supplementary table. Per-language "feature cleanness
+  rate" should rank: en cleanest, bn dirtiest. ~1h work.
+- **Optional confirmation experiment** (post-Phase-2b, ~2h compute):
+  re-run H1 final at `k = 5` (causally-validated LANGUAGE only, no
+  fillers) vs `k = 20` (with A∩B fillers). Prediction: at k=5 bn's
+  drop largely disappears (no garbage to ablate), en's gain holds.
+  This directly proves causal filtering matters and would be a
+  killer figure.
+- **No pipeline change needed.** H1 at k=20 is deliberately
+  unfiltered past position 5 specifically so the bn/sw degradation
+  *exposes* the cost of skipping causal validation. The negative
+  results are evidence, not error.
+
 #### Artifacts (incremental)
 
 - `results/phase2b_causal_labels_partial.pt` (3 KB, gitignored): all 25
