@@ -430,6 +430,43 @@ holds.
    identity. Promising candidate for the proposal's "bonus reasoning
    amplification" experiment in Phase 3.
 
+#### Paper-writing notes — Neuronpedia / auto-interp positioning
+
+Reviewers will ask "why didn't you just use Neuronpedia's auto-interp
+labels?" Pre-emptively address this in the methodology section:
+
+- **Neuronpedia provides correlational labels** (machine-generated
+  descriptions of which tokens fire a feature). It does **not** run
+  interventions and cannot tell you what happens when you ablate a
+  feature.
+- **Our taxonomy is causal**: LANGUAGE / SHARED / REASONING / JUNK is
+  defined by perplexity-Δ × accuracy-Δ on a downstream task under
+  ablation. This is fundamentally stronger evidence than correlational
+  auto-interp labels.
+- **Per-feature deltas show why this matters**: bn's f=154 fires
+  heavily on Bengali tokens (auto-interp would call it "Bengali
+  language"), but ablating it *also* drops arithmetic accuracy by 12 pp
+  → SHARED tag, not LANGUAGE. A reviewer relying on Neuronpedia would
+  treat it as a clean language feature; our method exposes the
+  reasoning entanglement.
+- **Sanity-check action item**: before the camera-ready, look up the
+  top-5 features per language on Neuronpedia (
+  https://www.neuronpedia.org/gemma-scope-2-4b-it-res-16k/17 and the
+  L9/22/29 equivalents) and tabulate the auto-interp label vs our
+  causal tag. Predicted result: agreement on EN-clean features
+  (Neuronpedia says "English", we say LANGUAGE), disagreement on bn
+  (Neuronpedia would say "Bengali", we say SHARED). That disagreement
+  is itself a contribution.
+- **Possible ablation experiment**: pick top-k features by
+  Neuronpedia's "language" probability score, ablate, compare to our
+  causally-validated top-k. Predict ours wins on bn/sw/zh where
+  Neuronpedia mislabels SHARED features as language. ~2h compute.
+- **Framing in the methods section**: "Neuronpedia / auto-interp gives
+  *correlational* feature labels; we provide *causal* validation; we
+  use Neuronpedia where available as a cross-confirmation signal." Do
+  not omit Neuronpedia — discussing it explicitly converts the
+  potential objection into a strength.
+
 #### Artifacts (incremental)
 
 - `results/phase2b_causal_labels_partial.pt` (3 KB, gitignored): all 25
