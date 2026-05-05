@@ -572,6 +572,29 @@ hard to argue with.
   *exposes* the cost of skipping causal validation. The negative
   results are evidence, not error.
 
+##### OPTIONAL — perplexity-text-genre robustness check
+
+Phase 2b's perplexity signal uses MGSM held-out *math word problems*
+(questions 200-249 per language) as the text corpus. This is a
+narrow genre. A reviewer could ask: "are LANGUAGE/SHARED tags robust
+if you swap MGSM-X for general-text-X?"
+
+**Optional follow-up** (~30 min compute, blocking for camera-ready
+but skippable for class submission): re-run the causal labeling step
+(Phase 2b cell 14) using **FLORES-200** dev text in each language as
+the perplexity corpus instead of MGSM questions. Compare the
+LANGUAGE/SHARED/REASONING/JUNK tags before vs after the swap.
+
+- **If tags are stable**: robustness evidence, add a one-paragraph
+  appendix saying so. Strengthens the causal-validation methodology.
+- **If tags differ for some features**: that's *itself* a finding —
+  some features fire on math-word-problem genre but not general
+  Swahili, etc. Would be reported as a feature-domain-specificity
+  result.
+
+Either outcome is publishable. Defer until Phase 2b results are
+otherwise paper-ready and time permits before submission.
+
 #### Artifacts (incremental)
 
 - `results/phase2b_causal_labels_partial.pt` (3 KB, gitignored): all 25
