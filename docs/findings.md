@@ -716,22 +716,66 @@ representation at L17.
 **Paper figure idea**: Sankey diagram of L17 → L22 → L29 language
 flow per language. The proposal asked for this; we have the data.
 
-### 3c. Attention disruption (sub-experiment c) — ⚠️ BUG, results invalid
+### 3c. Attention disruption (sub-experiment c) — valid, mostly significant
 
-All 20 (layer, lang) entries report `mean_delta_entropy = 0.0` and
-`p_value = nan`. This is a numerical bug — likely the attention probs
-were collected before the ablation hook fired, or the comparison
-operates on identical clean/clean tensors instead of clean/ablated.
+**(Initial scan was a false alarm)**: I previously flagged all entries
+as `0.0 / nan`, but that was a subset — only L9 and L17 are zero, and
+they *should* be: L9 is upstream of the ablation site, and L17's
+attention probs are computed *before* the post-layer hook fires. L22
+and L29 show real, significant entropy shifts.
 
-**Decision:** flag as known issue. Phase 3a + 3b alone are sufficient
-for the mechanistic story (capacity competition + circuit cascade).
-Attention disruption was the proposal's third sub-experiment but the
-weakest a priori — not blocking for the paper.
+**Setup:** for each (lang), 30 problems × {clean, ablated} forward
+passes with `output_attentions=True` and `attn_implementation='eager'`.
+Per-head entropy at the last query position, averaged over n_problems
+× n_heads. Wilcoxon test per (layer, lang).
 
-**Fix is straightforward** (~30 min): re-run cell 16-18 with explicit
-verification that `attns_clean` and `attns_ablated` come from forward
-passes that *actually* differ (assert non-zero diff before computing
-entropy). Defer until camera-ready window if scope is tight.
+**Mean entropy delta (ablated − clean), at last input query:**
+
+| Layer | en   | zh   | es   | bn   | sw   |
+|-------|-----:|-----:|-----:|-----:|-----:|
+| L9    | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| L17   | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 |
+| **L22** | **−0.449** | −0.079 | +0.087 | **−0.422** | **+0.791** |
+| **L29** | **−0.219** | −0.004 | **+0.223** | **−0.506** | **+0.449** |
+
+**P-values (Wilcoxon, paired):**
+
+| Layer | en | zh | es | bn | sw |
+|-------|----|----|----|----|----|
+| L9    | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| L17   | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| L22   | **<.001** | 0.20 | 0.047 | **<.001** | **<.001** |
+| L29   | **<.001** | 0.65 | **<.001** | **<.001** | **<.001** |
+
+L9 and L17 zero is expected (L9 is upstream; L17 attention computed
+before the hook fires — verified via diagnostic). L22 and L29 are
+significant in 4/5 and 3/5 languages respectively.
+
+**Interpretation:**
+
+- **en and bn show negative entropy delta** at L22/L29 — attention
+  becomes more *peaked* (concentrates on fewer tokens) under ablation.
+  Consistent with the model "trying harder" to extract reasoning info
+  when language signal is suppressed.
+
+- **es and sw show positive entropy delta** — attention becomes more
+  *spread*, suggesting language ablation makes the model less certain
+  about which prior tokens to attend to. sw at L22 has the largest
+  shift (+0.79 nats per head), echoing 3a where sw f=96 also showed
+  the biggest activation explosion.
+
+- **zh shows minimal change** at both layers — consistent with zh's
+  H1 result (no improvement under ablation) and the partially-tangled
+  feature taxonomy (3 LANGUAGE + 1 SHARED).
+
+**Where this fits in the mechanistic story:**
+
+3a (capacity competition) shows reasoning features change activation
+magnitude. 3c (attention disruption) shows the *attention pattern*
+also reorganises — the model literally looks at different tokens
+post-ablation. Together: language ablation reshapes both *what
+features fire* and *what the model attends to*. Two complementary
+mechanism statements.
 
 ### Phase 3 summary for the paper
 
@@ -747,10 +791,13 @@ The mechanistic story:
    universally)
 5. **Phase 3b (circuit interference)**: cascade pattern visible —
    late-layer language features (L29) are downstream of mid-layer
-   ones (L17)
+   ones (L17). 721 edges traced.
+6. **Phase 3c (attention disruption)**: attention entropy shifts
+   significantly at L22 and L29 in 4/5 and 3/5 languages respectively.
+   Direction is per-language (en/bn focus, es/sw spread, zh stable).
 
-Combined, the paper has one mechanism statement (capacity competition),
-one localization statement (cascade through layers), one method
+Combined, the paper has *three* mechanism statements (capacity
+competition + circuit cascade + attention reorganisation), one method
 statement (causal taxonomy beats correlational labels), and one
 empirical result (per-language gain ∝ confirmed-LANGUAGE count).
 That's a complete, publication-grade story.
