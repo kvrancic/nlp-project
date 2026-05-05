@@ -130,3 +130,46 @@ def encode_activations_through_sae(
         result = result.reshape(n, seq, -1)
 
     return result
+
+
+def encode_activations_batchtopk(
+    activations: torch.Tensor,
+    ae,
+    batch_size: int = 64,
+) -> torch.Tensor:
+    """Encode activations through a BatchTopK SAE (dictionary_learning format).
+
+    Works with both the dictionary_learning AutoEncoder and our fallback
+    BatchTopKSAE wrapper — both expose .encode().
+
+    Args:
+        activations: Tensor of shape (n, d_model) or (n, seq, d_model).
+        ae: BatchTopK autoencoder with .encode() method.
+        batch_size: Processing batch size.
+
+    Returns:
+        Feature activations tensor of shape (n, d_sae) or (n, seq, d_sae).
+    """
+    original_shape = activations.shape
+    is_3d = len(original_shape) == 3
+
+    if is_3d:
+        n, seq, d = original_shape
+        activations = activations.reshape(n * seq, d)
+
+    device = next(ae.parameters()).device
+    dtype = next(ae.parameters()).dtype
+    all_features = []
+
+    for i in range(0, activations.shape[0], batch_size):
+        batch = activations[i : i + batch_size].to(device=device, dtype=dtype)
+        with torch.no_grad():
+            features = ae.encode(batch)
+        all_features.append(features.cpu())
+
+    result = torch.cat(all_features, dim=0)
+
+    if is_3d:
+        result = result.reshape(n, seq, -1)
+
+    return result

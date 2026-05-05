@@ -1,5 +1,6 @@
 """Model and SAE loading utilities."""
 
+import json
 import os
 
 import torch
@@ -9,6 +10,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from src.config import (
     MODEL_DTYPE,
     MODEL_ID,
+    QWEN_SAE_REPO,
+    QWEN_SAE_TRAINER,
     SAE_L0_TARGET,
     SAE_RELEASE_RES,
     SAE_SUBSET_LAYERS,
@@ -144,6 +147,125 @@ def load_saes_at_layers(
         sae, _, _ = load_sae(layer, width=width, l0_target=l0_target, device=device)
         saes[layer] = sae
         print(f"  Loaded SAE for layer {layer} (width={width}, l0={l0_target})")
+    return saes
+
+
+# ---------- Qwen2.5-7B-IT BatchTopK SAEs ----------
+
+
+def load_qwen_sae(
+    layer: int,
+    trainer: str = QWEN_SAE_TRAINER,
+    repo: str = QWEN_SAE_REPO,
+    device: str = "cuda",
+):
+    """Load a BatchTopK SAE for Qwen2.5-7B-IT from HuggingFace.
+
+    These SAEs are from andyrdt/saes-qwen2.5-7b-instruct and use the
+    dictionary_learning library's AutoEncoder format.
+
+    Args:
+        layer: Transformer layer index (from QWEN_SAE_LAYERS).
+        trainer: Trainer variant (trainer_0=k32, trainer_1=k64,
+            trainer_2=k128, trainer_3=k256).
+        repo: HuggingFace repo ID.
+        device: Device to load SAE on.
+
+    Returns:
+        (ae, config) tuple — AutoEncoder object and its config dict.
+    """
+    from huggingface_hub import hf_hub_download
+
+    subdir = f"resid_post_layer_{layer}/{trainer}"
+    ae_path = hf_hub_download(repo, f"{subdir}/ae.pt", repo_type="model")
+    cfg_path = hf_hub_download(repo, f"{subdir}/config.json", repo_type="model")
+
+    with open(cfg_path) as f:
+        config = json.load(f)
+
+    # Try dictionary_learning library first, fall back to raw state dict
+    try:
+        from dictionary_learning import AutoEncoder
+        ae = AutoEncoder.from_pretrained(ae_path, device=device)
+    except ImportError:
+        # Fallback: load raw state dict and wrap in a simple module
+        ae = _load_batchtopk_raw(ae_path, config, device)
+
+    return ae, config
+
+
+def _load_batchtopk_raw(ae_path: str, config: dict, device: str):
+    """Fallback loader when dictionary_learning is not installed.
+
+    Loads the state dict and wraps it in a minimal module that exposes
+    .encode() and .decoder.weight for compatibility.
+    """
+    import torch.nn as nn
+
+    state = torch.load(ae_path, map_location=device, weights_only=True)
+
+    class BatchTopKSAE(nn.Module):
+        def __init__(self, state_dict, k):
+            super().__init__()
+            self.encoder = nn.Linear(
+                state_dict["encoder.weight"].shape[1],
+                state_dict["encoder.weight"].shape[0],
+            )
+            self.decoder = nn.Linear(
+                state_dict["decoder.weight"].shape[1],
+                state_dict["decoder.weight"].shape[0],
+                bias=False,
+            )
+            # Load weights
+            self.encoder.weight = nn.Parameter(state_dict["encoder.weight"])
+            self.encoder.bias = nn.Parameter(state_dict["encoder.bias"])
+            self.decoder.weight = nn.Parameter(state_dict["decoder.weight"])
+            if "pre_bias" in state_dict:
+                self.register_buffer("pre_bias", state_dict["pre_bias"])
+            else:
+                self.register_buffer("pre_bias", torch.zeros(self.encoder.weight.shape[1]))
+            self.k = k
+
+        def encode(self, x):
+            x_centered = x - self.pre_bias
+            pre_acts = self.encoder(x_centered)
+            # BatchTopK: keep top-k activations per sample
+            topk_vals, topk_idx = pre_acts.topk(self.k, dim=-1)
+            acts = torch.zeros_like(pre_acts)
+            acts.scatter_(-1, topk_idx, torch.relu(topk_vals))
+            return acts
+
+    k = config.get("k", 64)
+    model = BatchTopKSAE(state, k).to(device)
+    model.eval()
+    return model
+
+
+def load_qwen_saes_at_layers(
+    layers: list[int] | None = None,
+    trainer: str = QWEN_SAE_TRAINER,
+    device: str = "cuda",
+) -> dict:
+    """Load Qwen BatchTopK SAEs for multiple layers.
+
+    Args:
+        layers: List of layer indices. Defaults to QWEN_SAE_SUBSET_LAYERS.
+        trainer: Trainer variant.
+        device: Device.
+
+    Returns:
+        Dict mapping layer index to AutoEncoder object.
+    """
+    from src.config import QWEN_SAE_SUBSET_LAYERS
+
+    if layers is None:
+        layers = QWEN_SAE_SUBSET_LAYERS
+
+    saes = {}
+    for layer in layers:
+        ae, config = load_qwen_sae(layer, trainer=trainer, device=device)
+        saes[layer] = ae
+        print(f"  Loaded Qwen SAE for layer {layer} (trainer={trainer}, k={config.get('k', '?')})")
     return saes
 
 

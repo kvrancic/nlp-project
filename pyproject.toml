@@ -12,6 +12,8 @@ dependencies = [
     "transformers>=4.49.0",
     "sae-lens>=5.9.0",
     "nnsight>=0.4.0",
+    "dictionary_learning @ git+https://github.com/saprmarks/dictionary_learning.git",
+    "huggingface-hub",
     "sentence-transformers",
     "scikit-learn",
     "numpy",

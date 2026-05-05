@@ -44,18 +44,27 @@ def directional_ablation(
     return (x - proj).to(activation.dtype)
 
 
-def get_sae_decoder_directions(sae, feature_indices: list[int]) -> torch.Tensor:
+def get_sae_decoder_directions(sae, feature_indices: list[int], sae_type: str = "saelens") -> torch.Tensor:
     """Extract decoder weight columns for specified features.
 
+    Supports both SAELens SAEs and dictionary_learning BatchTopK SAEs.
+
     Args:
-        sae: SAELens SAE object.
+        sae: SAE object (SAELens or dictionary_learning AutoEncoder).
         feature_indices: List of feature indices to extract.
+        sae_type: "saelens" or "batchtopk".
 
     Returns:
         Tensor of shape (len(feature_indices), d_model).
     """
-    # SAELens stores decoder weights as W_dec of shape (n_features, d_model)
-    W_dec = sae.W_dec.data  # (n_features, d_model)
+    if sae_type == "saelens":
+        # SAELens stores decoder weights as W_dec of shape (n_features, d_model)
+        W_dec = sae.W_dec.data  # (n_features, d_model)
+    else:
+        # dictionary_learning: decoder.weight is (d_model, n_features)
+        # or (n_features, d_model) depending on nn.Linear convention.
+        # nn.Linear(d_sae, d_model) stores weight as (d_model, d_sae)
+        W_dec = sae.decoder.weight.data.T  # (n_features, d_model)
     return W_dec[feature_indices]
 
 

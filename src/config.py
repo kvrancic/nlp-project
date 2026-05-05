@@ -46,6 +46,22 @@ ZHAO_HIGHER_LAYERS = list(range(24, 33))
 ZHAO_LAMBDA_RANGE_MIDDLE = (0.0, 0.4)    # positive = remove language
 ZHAO_LAMBDA_RANGE_HIGHER = (-0.4, 0.0)   # negative = re-inject language
 
+# ---------- Qwen2.5-7B-IT ----------
+QWEN_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+QWEN_D_MODEL = 3584
+QWEN_N_LAYERS = 28
+
+# andyrdt BatchTopK SAEs (residual stream)
+QWEN_SAE_REPO = "andyrdt/saes-qwen2.5-7b-instruct"
+QWEN_SAE_LAYERS = [3, 7, 11, 15, 19, 23, 27]      # all available
+QWEN_SAE_SUBSET_LAYERS = [7, 11, 19, 27]            # ~25%, ~40%, ~68%, ~96% depth
+QWEN_SAE_WIDTH = 131072
+QWEN_SAE_TRAINER = "trainer_1"   # k=64 (moderate sparsity)
+
+# Zhao layer ranges for 28-layer model (~30-70% = 8-19, ~70-97% = 20-27)
+QWEN_ZHAO_MIDDLE_LAYERS = list(range(8, 20))
+QWEN_ZHAO_HIGHER_LAYERS = list(range(20, 27))
+
 # ---------- Experiment ----------
 BATCH_SIZE = 4  # for activation extraction on A100
 MAX_NEW_TOKENS = 512  # for MGSM generation
