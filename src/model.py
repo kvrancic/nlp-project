@@ -187,8 +187,10 @@ def load_qwen_sae(
     try:
         from dictionary_learning import AutoEncoder
         ae = AutoEncoder.from_pretrained(ae_path, device=device)
-    except ImportError:
-        # Fallback: load raw state dict and wrap in a simple module
+    except (ImportError, RuntimeError):
+        # Fallback: load raw state dict and wrap in a simple module.
+        # RuntimeError covers state_dict key mismatches between
+        # dictionary_learning versions and the checkpoint format.
         ae = _load_batchtopk_raw(ae_path, config, device)
 
     return ae, config
@@ -220,8 +222,11 @@ def _load_batchtopk_raw(ae_path: str, config: dict, device: str):
             self.encoder.weight = nn.Parameter(state_dict["encoder.weight"])
             self.encoder.bias = nn.Parameter(state_dict["encoder.bias"])
             self.decoder.weight = nn.Parameter(state_dict["decoder.weight"])
+            # Pre-bias: some checkpoints use "pre_bias", others "b_dec"
             if "pre_bias" in state_dict:
                 self.register_buffer("pre_bias", state_dict["pre_bias"])
+            elif "b_dec" in state_dict:
+                self.register_buffer("pre_bias", state_dict["b_dec"])
             else:
                 self.register_buffer("pre_bias", torch.zeros(self.encoder.weight.shape[1]))
             self.k = k
@@ -235,7 +240,11 @@ def _load_batchtopk_raw(ae_path: str, config: dict, device: str):
             acts.scatter_(-1, topk_idx, torch.relu(topk_vals))
             return acts
 
-    k = config.get("k", 64)
+    # k can come from config or from the checkpoint itself
+    if "k" in state and isinstance(state["k"], (int, torch.Tensor)):
+        k = int(state["k"]) if isinstance(state["k"], torch.Tensor) else state["k"]
+    else:
+        k = config.get("k", 64)
     model = BatchTopKSAE(state, k).to(device)
     model.eval()
     return model
