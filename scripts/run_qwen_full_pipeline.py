@@ -105,8 +105,14 @@ def auto_commit(message: str, force: bool = False):
     if not force and elapsed < 1800:
         return
     try:
+        import glob as glob_mod
+        pt_files = glob_mod.glob(str(RESULTS_DIR / "qwen_*.pt"))
+        files_to_add = pt_files + [str(FINDINGS_PATH)]
+        files_to_add = [f for f in files_to_add if Path(f).exists()]
+        if not files_to_add:
+            return
         subprocess.run(
-            ["git", "add", "results/qwen_*.pt", "docs/findings.md"],
+            ["git", "add"] + files_to_add,
             cwd=REPO_ROOT, check=True, capture_output=True,
         )
         subprocess.run(
