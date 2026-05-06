@@ -49,12 +49,19 @@ def clamped_ablation(
     activation: torch.Tensor,
     sae,
     feature_indices: list[int],
+    sae_type: str = "saelens",
 ) -> torch.Tensor:
     """Remove specific SAE features' contribution from activation.
 
     Encodes activation through SAE, computes the contribution of target
     features (acts @ W_dec[features]), and subtracts only that from the
     original activation. No full reconstruction = no reconstruction error.
+
+    Args:
+        activation: Tensor of shape (..., d_model).
+        sae: SAE object (SAELens or dictionary_learning AutoEncoder).
+        feature_indices: List of feature indices to ablate.
+        sae_type: "saelens" or "batchtopk".
     """
     orig_shape = activation.shape
     flat = activation.view(-1, orig_shape[-1])
@@ -66,7 +73,7 @@ def clamped_ablation(
     feature_acts = sae.encode(flat_cast)  # (n, n_features)
 
     # Compute contribution of TARGET features only
-    W_dec = sae.W_dec.data[feature_indices]       # (k, d_model)
+    W_dec = get_sae_decoder_directions(sae, feature_indices, sae_type=sae_type)  # (k, d_model)
     acts = feature_acts[:, feature_indices]         # (n, k)
     delta = acts @ W_dec                            # (n, d_model)
 
@@ -191,7 +198,7 @@ def run_generate_with_hooks(
     return outputs
 
 
-def _make_clamped_hook(sae, feature_indices, input_lens):
+def _make_clamped_hook(sae, feature_indices, input_lens, sae_type="saelens"):
     """Hook that applies clamped_ablation at the last input token per example."""
     def hook_fn(module, input, output):
         hidden = output if isinstance(output, torch.Tensor) else output[0]
@@ -201,7 +208,8 @@ def _make_clamped_hook(sae, feature_indices, input_lens):
             if hidden.shape[1] >= length:
                 pos = length - 1
                 hidden[i, pos:pos+1, :] = clamped_ablation(
-                    hidden[i, pos:pos+1, :], sae, feature_indices
+                    hidden[i, pos:pos+1, :], sae, feature_indices,
+                    sae_type=sae_type,
                 )
 
         return hidden if not is_tuple else (hidden,) + output[1:]
