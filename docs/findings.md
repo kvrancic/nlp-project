@@ -934,3 +934,105 @@ figures + LaTeX-ready tables + appends to this `findings.md`.
 - "Causally confirmed LANGUAGE feature" = single-feature ablation that
   raises target-language perplexity and leaves arithmetic accuracy ≈ baseline.
   Features failing both criteria are tagged JUNK and excluded.
+
+
+---
+
+## Qwen2.5-7B — Phase 1: Feature Identification
+
+**Model:** `Qwen/Qwen2.5-7B-Instruct` (28 layers, d_model=3584)
+**SAEs:** BatchTopK from `andyrdt/saes-qwen2.5-7b-instruct`, layers [7, 11, 19, 27]
+
+**Probe accuracies:**
+
+| Layer | Accuracy |
+|-------|----------|
+| 7 | 1.000 |
+| 11 | 1.000 |
+| 19 | 1.000 |
+| 27 | 1.000 |
+
+**A∩B intersection sizes:**
+
+| Layer | en | zh | es | bn | sw |
+|-------|----|----|----|----|----|
+| 7 | 30 | 33 | 31 | 27 | 32 |
+| 11 | 32 | 40 | 29 | 28 | 23 |
+| 19 | 22 | 26 | 20 | 26 | 30 |
+| 27 | 33 | 45 | 33 | 40 | 41 |
+
+**Reasoning candidates:** L7=18, L11=22, L19=33, L27=11
+
+
+
+---
+
+## Qwen2.5-7B — Phase 2a: Zhao SVD Baseline
+
+**Best config:** λ_mid=0.3, λ_hi=-0.2, rank=3
+
+| Language | Baseline | Zhao | Δ |
+|----------|----------|------|---|
+| en | 0.796 | 0.832 | +0.036 |
+| zh | 0.788 | 0.780 | -0.008 |
+| es | 0.740 | 0.740 | +0.000 |
+| bn | 0.380 | 0.384 | +0.004 |
+| sw | 0.132 | 0.140 | +0.008 |
+| **Avg** | **0.567** | **0.575** | **+0.008** |
+
+
+
+---
+
+## Qwen2.5-7B — Phase 2b: Causal Ablation
+
+**Primary layer:** 11, **Best k:** 10
+
+**Causal label counts:** JUNK=14, REASONING=11
+
+**H1 final (full 250×5):**
+
+| Lang | LANG count | Baseline | Zhao | SAE | Δ vs base |
+|------|-----------|----------|------|-----|----------|
+| en | 0 | 0.796 | 0.832 | 0.812 | +0.016 |
+| zh | 0 | 0.788 | 0.780 | 0.780 | -0.008 |
+| es | 0 | 0.740 | 0.740 | 0.736 | -0.004 |
+| bn | 0 | 0.380 | 0.384 | 0.360 | -0.020 |
+| sw | 0 | 0.132 | 0.140 | 0.124 | -0.008 |
+| **avg** | | **0.567** | **0.575** | **0.562** | **-0.005** |
+
+**H3 layer-wise (dev):**
+
+| Layer | avg | Δ vs baseline |
+|-------|-----|---------------|
+| L7 | 0.496 | -0.071 |
+| L11 | 0.512 | -0.055 |
+| L19 | 0.540 | -0.027 |
+| L27 | 0.520 | -0.047 |
+
+
+
+---
+
+## Qwen2.5-7B — Phase 3: Interaction Analysis
+
+**3a Capacity competition:**
+
+- en: 21 sig features, top |Δ|=7.8
+- zh: 22 sig features, top |Δ|=1.7
+- es: 22 sig features, top |Δ|=3.3
+- bn: 21 sig features, top |Δ|=1.5
+- sw: 22 sig features, top |Δ|=6.6
+
+**3c Attention entropy delta (ablated − clean):**
+
+| Layer | en | zh | es | bn | sw |
+|-------|------|------|------|------|------|
+| L7 | +0.000 | +0.000 | +0.000 | +0.000 | +0.000 |
+| L11 | +0.000 | +0.000 | +0.000 | +0.000 | +0.000 |
+| L19 | -0.005 | +0.017 | -0.028 | -0.011 | -0.009 |
+| L27 | +0.210 | -0.005 | +0.023 | +0.009 | +0.011 |
+
+**3b Circuit interference:** 1152 unique edges captured.
+Top edge: en L27 f=125899 (|Δ|=142)
+
