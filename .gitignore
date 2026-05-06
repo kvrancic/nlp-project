@@ -39,6 +39,7 @@ results/*.zip
 !results/phase2_zhao_baseline.pt
 !results/phase2_ablation.pt
 !results/phase3_interaction.pt
+!results/phase2_clamped_vs_directional.pt
 data/
 *.safetensors
 
