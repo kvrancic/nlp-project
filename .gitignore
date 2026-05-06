@@ -42,6 +42,7 @@ results/*.zip
 !results/phase3a_controls.pt
 !results/phase3a_alignment.pt
 !results/phase3a_controls_summary.csv
+!results/phase3bc_controls.pt
 data/
 *.safetensors
 

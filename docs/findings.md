@@ -947,6 +947,93 @@ Less flashy, more honest, and the alignment finding is genuinely novel.
 
 ---
 
+## Phase 3b/3c controls — Circuit attribution + attention disruption audit (script `phase3bc_controls.py`, complete)
+
+**Date:** 2026-05-06.
+**Pod:** Same H100 80GB PCIe, ~10 min compute, ~$0.50.
+**Artifacts:** `results/phase3bc_controls.pt`, `docs/runs/phase3bc_audit_20260506.log`,
+`scripts/phase3bc_controls.py`.
+
+### What was tested
+
+For each of three ablation variants — `baseline_k20` (original Phase 3a, contaminated),
+`confirmed` (Phase 2b LANGUAGE only), `top_A_k20` (Deng-style) — measured on N=20 dev
+problems × 5 langs:
+- (3b) top-30 |Δ feature activation| per (lang, downstream_layer ∈ {22, 29}) under L17 ablation
+- (3c) per-head attention entropy at last input query at L17, L22, L29
+
+### Phase 3c result — **SURVIVES**
+
+Mean entropy delta (ablated − clean) at last query position:
+
+```
+                bn      en      es      sw      zh    sig (p<0.05)
+L22:
+  baseline_k20  -0.42   -0.44   +0.09   +0.79   -0.09     3/5
+  confirmed     skip    -0.11   -0.21   +1.02   -0.14     2/4
+  top_A_k20     -0.17   -0.37   -0.19   +0.76   +0.02     4/5
+L29:
+  baseline_k20  -0.53   -0.22   +0.20   +0.47   -0.01     4/5
+  confirmed     skip    -0.01   +1.16   +0.75   -0.69     3/4
+  top_A_k20     -0.37   -0.00   +0.17   +0.15   -0.13     4/5
+L17:    0/5 sig everywhere (L17 attention computed before ablation hook fires).
+```
+
+The headline ("L17 LANGUAGE ablation disrupts attention entropy at L22/L29") survives
+when switching to confirmed-only or top-A variants. Magnitudes are comparable across
+variants. Per-language signs vary somewhat (some langs increase entropy, some decrease)
+which is itself a finding worth keeping.
+
+### Phase 3b result — **PARTIALLY VALID**
+
+Top-30 strongest |Δ| downstream features per (lang, layer), overlap between
+`baseline_k20` and `confirmed`:
+
+```
+  en L22: 14/30 (47%)    en L29: 19/30 (63%)
+  zh L22:  6/30 (20%)    zh L29: 12/30 (40%)
+  es L22: 14/30 (47%)    es L29: 13/30 (43%)
+  sw L22:  2/30  (7%)    sw L29: 12/30 (40%)
+```
+
+About half the top downstream effects per language are robust across ablation choice,
+the other half are contamination-driven. The sw L22 case (2/30 overlap) is a particularly
+sharp instance of the f=96-in-set issue from Phase 3a alignment audit — completely
+different downstream effects depending on whether the contaminated 20-feature or clean
+2-feature ablation is used.
+
+The "721 edges" Phase 3 headline cannot stand as-is. The defensible reframe is:
+
+> "We identify a robust subset of ~10–15 downstream features per language and layer
+> whose change under L17 LANGUAGE ablation is consistent across both contaminated and
+> clean ablation sets. We exclude effects that don't survive the alignment audit."
+
+This is a downgrade in claim strength but not a project-killer.
+
+### Net status post-3b/3c audit
+
+| Phase | Status |
+|-------|--------|
+| Phase 1 (extraction) | Real |
+| Phase 2a (Zhao SVD) | Real |
+| Phase 2b H1 (SAE accuracy) | Real but mechanism unclear (TBD: re-run with confirmed-only) |
+| Phase 2b H2 (fidelity tradeoff) | Real |
+| Phase 2b H3 (layer-wise) | Real |
+| **Phase 3a (capacity competition)** | **Invalidated** |
+| Phase 3b (circuit attribution) | Partially valid; reframe to robust subset |
+| **Phase 3c (attention disruption)** | **Survives audit — paper-grade** |
+| Methodological: alignment-controlled SAE ablation | Novel contribution |
+
+The methodological contribution (alignment-controlled ablation) plus the
+attention-disruption finding (Phase 3c, validated) plus Phase 2b H1/H2/H3 form
+a complete-but-honest paper. The flashy "capacity competition" headline is gone;
+the realistic paper is "language-modeling features in the residual stream
+disrupt attention routing in downstream layers; previously reported
+capacity-competition findings in this regime are explained by encoder-bias
+unmasking artifacts under aligned-subspace ablation."
+
+---
+
 ## Phase 4 — Paper compilation (pending)
 
 `06_paper_figures.ipynb` loads all `results/*.pt` and produces publication
@@ -963,6 +1050,8 @@ figures + LaTeX-ready tables + appends to this `findings.md`.
 | H2 | SAE ablation preserves output language fidelity better than SVD | SAE > Zhao on en (+3.2), es (+4.8), zh (+0.5); SAE < Zhao on bn (-12.8), sw (-0.4). bn loss is *predicted* by all-SHARED taxonomy. | **Supported with caveat**: holds for clean-feature languages |
 | H3 | Ablation gain is layer-dependent, peaks at middle layers | L22 = +0.061 avg (peak, all langs improve); L9 = +0.041; L17 = −0.035; L29 = −0.055. Inverted-U around L22. | **Strongly supported** |
 | Phase 3a (capacity competition) | Ablating LANGUAGE features releases dormant REASONING features (f=96) | After alignment-controlled audit (notebook 05b): f=96 release fully explained by encoder-bias unmasking. `max_aligned_k20` releases 8–10× more than any LANGUAGE set. `f96_clean` (LANG with f=96-aligned features removed) releases zero across all 5 langs. | **Refuted** as a capacity-competition claim. Surviving contribution is the methodological correction itself. |
+| Phase 3b (circuit attribution) | Ablating L17 LANGUAGE features causes attributable cascading effects at L22 / L29 | Audit (`phase3bc_controls.py`): top-30 strongest downstream effects overlap 7–63% between baseline_k20 and confirmed-only variants. ~50% typical, some langs essentially disjoint. | **Partially valid** — ~10–15 stable downstream features per (lang, layer) survive; the other half are contamination-driven. Reframe headline to robust subset. |
+| Phase 3c (attention disruption) | Ablating L17 LANGUAGE features shifts attention entropy at L22 / L29 | Audit: significant entropy shifts at L22 (2-4/5 langs) and L29 (3-4/5 langs) under all three variants (baseline / confirmed / top-A). Magnitudes comparable. | **Survives audit** — paper-grade finding. |
 
 ---
 
