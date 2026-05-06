@@ -244,6 +244,7 @@ def run_generate_with_hooks_batched(
     max_new_tokens: int = 384,
     batch_size: int = 8,
     device: str = "cuda",
+    sae_type: str = "saelens",
 ) -> list[str]:
     """Batched generation with ablation hooks.
 
@@ -259,6 +260,7 @@ def run_generate_with_hooks_batched(
         max_new_tokens: Max tokens to generate.
         batch_size: Batch size.
         device: Device.
+        sae_type: "saelens" or "batchtopk".
 
     Returns:
         List of generated text strings.
@@ -278,9 +280,9 @@ def run_generate_with_hooks_batched(
         handles = []
         for layer_idx, (sae, feat_ids) in hook_config.items():
             if method == "clamped":
-                hook_fn = _make_clamped_hook(sae, feat_ids, input_lens)
+                hook_fn = _make_clamped_hook(sae, feat_ids, input_lens, sae_type=sae_type)
             else:
-                directions = get_sae_decoder_directions(sae, feat_ids)
+                directions = get_sae_decoder_directions(sae, feat_ids, sae_type=sae_type)
                 hook_fn = _make_directional_hook(directions, input_lens, device)
             handle = decoder_layers[layer_idx].register_forward_hook(hook_fn)
             handles.append(handle)

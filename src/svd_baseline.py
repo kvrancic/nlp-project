@@ -239,6 +239,109 @@ def generate_with_svd_intervention(
     return torch.cat([input_ids, torch.cat(generated, dim=1)], dim=1)
 
 
+def generate_with_svd_batched(
+    model,
+    tokenizer,
+    texts: list[str],
+    M_s_per_layer: dict[int, torch.Tensor],
+    lambda_middle: float,
+    lambda_higher: float,
+    max_new_tokens: int = 384,
+    batch_size: int = 8,
+    middle_layers: list[int] | None = None,
+    higher_layers: list[int] | None = None,
+    device: str = "cuda",
+) -> list[str]:
+    """Batched generation with SVD projection applied at the last input token.
+
+    Uses the same left-pad + per-example input_lens pattern as
+    run_generate_with_hooks_batched in intervention.py. Hooks apply
+    project_out_language at each example's last-input position during
+    the prefill and then remove themselves for autoregressive decoding.
+
+    Args:
+        model: HuggingFace model.
+        tokenizer: Tokenizer.
+        texts: Input texts.
+        M_s_per_layer: Dict mapping layer index to M_s tensor.
+        lambda_middle: λ for middle layers.
+        lambda_higher: λ for higher layers.
+        max_new_tokens: Max tokens to generate.
+        batch_size: Batch size.
+        middle_layers: Layer indices for middle range.
+        higher_layers: Layer indices for higher range.
+        device: Device.
+
+    Returns:
+        List of generated text strings.
+    """
+    from src.model import get_decoder_layers
+
+    if middle_layers is None:
+        middle_layers = ZHAO_MIDDLE_LAYERS
+    if higher_layers is None:
+        higher_layers = ZHAO_HIGHER_LAYERS
+
+    tokenizer.padding_side = "left"
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    decoder_layers = get_decoder_layers(model)
+    all_outputs = []
+
+    for i in range(0, len(texts), batch_size):
+        batch_texts = texts[i:i + batch_size]
+        inputs = tokenizer(batch_texts, return_tensors="pt", padding=True).to(device)
+        input_lens = inputs["attention_mask"].sum(dim=1)
+
+        handles = []
+        for layer_idx, M_s in M_s_per_layer.items():
+            if layer_idx in middle_layers:
+                lam = lambda_middle
+            elif layer_idx in higher_layers:
+                lam = lambda_higher
+            else:
+                continue
+
+            def make_hook(m_s_raw, l, il):
+                m_s = None
+
+                def hook_fn(module, inp, output):
+                    nonlocal m_s
+                    hidden = output if isinstance(output, torch.Tensor) else output[0]
+                    is_tuple = not isinstance(output, torch.Tensor)
+                    if m_s is None:
+                        m_s = m_s_raw.to(dtype=hidden.dtype, device=hidden.device)
+                    for j, length in enumerate(il):
+                        if hidden.shape[1] >= length:
+                            pos = length - 1
+                            hidden[j, pos, :] = project_out_language(
+                                hidden[j, pos, :], m_s, l
+                            )
+                    return hidden if not is_tuple else (hidden,) + output[1:]
+                return hook_fn
+
+            handle = decoder_layers[layer_idx].register_forward_hook(
+                make_hook(M_s, lam, input_lens)
+            )
+            handles.append(handle)
+
+        with torch.no_grad():
+            gen_ids = model.generate(
+                **inputs, max_new_tokens=max_new_tokens, do_sample=False
+            )
+
+        for j, gen in enumerate(gen_ids):
+            input_len = input_lens[j].item()
+            text = tokenizer.decode(gen[input_len:], skip_special_tokens=True)
+            all_outputs.append(text)
+
+        for h in handles:
+            h.remove()
+
+    return all_outputs
+
+
 def grid_search_lambda(
     lambdas_middle: list[float] | None = None,
     lambdas_higher: list[float] | None = None,
