@@ -1,404 +1,350 @@
 % Poster — Language-Reasoning Interference via SAEs
 % Compile with: pdflatex poster.tex (or upload to Overleaf)
-% Uses tikzposter for clean academic poster layout
-\documentclass[25pt, a0paper, landscape]{tikzposter}
+% Uses Gemini beamerposter theme
+
+\documentclass[final]{beamer}
+
+% ====================
+% Packages
+% ====================
 
 \usepackage[T1]{fontenc}
-\usepackage{amsmath, amssymb}
-\usepackage{booktabs}
-\usepackage{microtype}
+\usepackage{lmodern}
+\usepackage[size=a0,orientation=landscape,scale=1.0]{beamerposter}
+\usetheme{gemini}
+\usecolortheme{redorange}
 \usepackage{graphicx}
-\usepackage{xcolor}
-\usepackage{enumitem}
-\usepackage{multicol}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{microtype}
 
-% ---------- Theme ----------
-\usetheme{Default}
-\usecolorstyle{Denmark}
+% ====================
+% Lengths
+% ====================
 
-% Custom colors
-\definecolor{MITred}{HTML}{A31F34}
-\definecolor{darkblue}{HTML}{1a365d}
-\definecolor{accentblue}{HTML}{2563eb}
-\definecolor{lightgray}{HTML}{f5f5f5}
-\definecolor{gain}{HTML}{27ae60}
-\definecolor{loss}{HTML}{c0392b}
+\newlength{\sepwidth}
+\newlength{\colwidth}
+\setlength{\sepwidth}{0.025\paperwidth}
+\setlength{\colwidth}{0.3\paperwidth}
 
-\definecolorstyle{MITStyle}{
-  \definecolor{colorOne}{HTML}{1a365d}
-  \definecolor{colorTwo}{HTML}{2563eb}
-  \definecolor{colorThree}{HTML}{A31F34}
-}{
-  \colorlet{backgroundcolor}{white}
-  \colorlet{framecolor}{colorOne}
-  \colorlet{titlefgcolor}{white}
-  \colorlet{titlebgcolor}{colorOne}
-  \colorlet{blocktitlebgcolor}{colorOne}
-  \colorlet{blocktitlefgcolor}{white}
-  \colorlet{blockbodybgcolor}{white}
-  \colorlet{blockbodyfgcolor}{black}
-}
-\usecolorstyle{MITStyle}
+\newcommand{\separatorcolumn}{\begin{column}{\sepwidth}\end{column}}
 
-% Compact lists
-\setlist[itemize]{leftmargin=1.2em, itemsep=0.2em, topsep=0.2em}
-\setlist[enumerate]{leftmargin=1.5em, itemsep=0.2em, topsep=0.2em}
+% ====================
+% Title
+% ====================
 
-% ---------- Title ----------
-\title{\parbox{0.95\linewidth}{\centering
-  From Subspaces to Features: Causal Feature Profiling of\\[0.15em]
-  Language-Reasoning Interference in Multilingual LLMs}}
-\author{Karlo Vrancic, Anastasia Ahani, Riley Kong}
+\title{\textbf{Procedure, Not Property:} SAE Features Whose Ablation Improves
+  Multilingual Reasoning Are Not (Just) Language Features}
+
+\author{Karlo Vrancic \and Anastasia Ahani \and Riley Kong}
+
 \institute{MIT 6.8610 --- Quantitative Methods for Natural Language Processing --- Spring 2026}
+
+% ====================
+% Footer
+% ====================
+
+\footercontent{
+  \href{https://github.com/kvrancic/nlp-project}{github.com/kvrancic/nlp-project}
+  \hfill
+  MIT 6.8610 --- Spring 2026
+  \hfill
+  \href{mailto:kvrancic@mit.edu}{kvrancic@mit.edu}}
+
+% ====================
+% Body
+% ====================
 
 \begin{document}
 
-\maketitle[width=0.98\textwidth]
+\begin{frame}[t]
+\begin{columns}[t]
+\separatorcolumn
 
-% ===================================================================
-% ROW 1
-% ===================================================================
-\begin{columns}
+% =====================================================================
+% COLUMN 1
+% =====================================================================
+\begin{column}{\colwidth}
 
-% ------------------------------------------------------------------
-% PANEL 1: Motivation & Setup
-% ------------------------------------------------------------------
-\column{0.32}
-\block{1. Motivation \& Setup}{
+  \begin{block}{1. The Question}
 
-\textbf{Problem.}
-Multilingual LLMs reason worse in non-English languages.
-Zhao et al.\ (NeurIPS 2025) showed that removing language subspaces via SVD
-improves multilingual reasoning --- but their method is coarse (operates on
-entire subspaces) and cannot explain why the effect varies across languages.
+    \heading{Zhao et al.\ (NeurIPS 2025)}
+    Multilingual LLMs reason worse in non-English languages.
+    Zhao et al.\ showed this is partly caused by \emph{language-specific
+    representations interfering with reasoning}.
+    Their method: compute per-language mean hidden states across translated
+    math problems, extract a ``language subspace'' via SVD, and project it
+    out at inference time ($\hat{h} = h - \lambda\, M_s M_s^\top h$).
+    Across 10 models and 10 languages: consistent gains up to +12.8pp,
+    especially for low-resource languages.
 
-\textbf{Our approach.}
-We use \textbf{Sparse Autoencoders} (Gemma Scope 2) for
-\emph{per-feature} decomposition of the residual stream, enabling:
-\begin{itemize}
-  \item Individual feature identification (monolinguality + probe)
-  \item Individual feature ablation with causal measurement
-  \item Per-language, per-feature mechanistic analysis
-\end{itemize}
+    \heading{Our extension}
+    Zhao's method operates on entire subspaces and cannot identify individual
+    features or explain the mechanism.
+    We decompose the effect to individual SAE features to characterize both
+    the \textbf{mechanism} and the \textbf{nature} of the ablated
+    representations.
 
-\textbf{Setup.}
-\begin{itemize}
-  \item \textbf{Model:} Gemma 3 4B IT (34 layers, $d_\text{model}=2560$, BF16)
-  \item \textbf{SAEs:} 16k-width residual SAEs at layers \{9, 17, 22, 29\}
-  \item \textbf{Data:} MGSM --- 250 math problems $\times$ 5 languages (en, zh, es, bn, sw)
-  \item \textbf{Feature ID:} Method A (monolinguality $\nu$) $\cap$
-        Method B (supervised probe) $\to$ candidate features
-  \item \textbf{Probe ceiling:} 0.88 across all layers --- language identity is mostly
-        but not perfectly linearly decodable in SAE feature space
-\end{itemize}
+    \heading{The question}
+    \textbf{What are these features doing, and what are they encoding?}
 
-\vspace{0.3em}
-\textbf{Three feature identification methods.}
-Following prof's guidance (``use 3 methods; disagreement is a finding''):
-\begin{enumerate}
-  \item \textbf{A --- Monolinguality:} $\nu_s^L = \mu_s^L - \gamma_s^L$
-  \item \textbf{B --- Supervised probe:} LogisticRegression on SAE features
-  \item \textbf{C --- Cross-lingual reasoning:} features active across all 5 langs
-\end{enumerate}
-A$\cap$B intersection selects candidates; C identifies reasoning features.
+    Using SAEs on Gemma 3 4B IT, we identify candidate
+    features via monolinguality ($\nu$) $\cap$ supervised probe.
+    Ablation improves reasoning for en~+13.2pp, es~+6.8pp --- but three
+    lines of evidence suggest the label ``language feature'' is a
+    \textbf{procedural tag}, not an \textbf{intrinsic property}.
 
-%% Small probe-accuracy figure placeholder
-%\begin{center}
-%\includegraphics[width=0.9\linewidth]{figures/paper_fig2_phase1.png}
-%\end{center}
-}
+  \end{block}
 
-% ------------------------------------------------------------------
-% PANEL 2: Main Result --- SAE ablation vs Zhao
-% ------------------------------------------------------------------
-\column{0.36}
-\block{2. SAE Ablation vs.\ Zhao SVD Baseline}{
+  \begin{block}{2. SAE Language Feature Extraction}
 
-Ablate top-$k$ A$\cap$B features per language at layer 17 using
-directional (QR-orthogonalized) projection.
-Best $k=20$ selected on 50-prompt dev split.
+    We pass 250 MGSM math problems $\times$ 5 languages through Gemma 3 4B IT,
+    extract last-token residual-stream activations, and encode them through
+    Gemma Scope 2 SAEs (16k-width, layers \{9, 17, 22, 29\}).
 
-\vspace{0.5em}
+    \heading{Two identification methods}
+    \begin{itemize}
+      \item \textbf{Method A --- Monolinguality ($\nu$):}
+            $\nu_s^L = \mu_s^L - \gamma_s^L$ (mean activation on target language
+            minus mean across other languages). Top-50 per language.
+      \item \textbf{Method B --- Supervised probe:}
+            Logistic regression on SAE feature vectors (5-way language
+            classification, accuracy ceiling $\sim$0.88). Top-50 per language
+            by coefficient magnitude.
+    \end{itemize}
+    Candidates $=$ A $\cap$ B intersection.
+    Methods mostly disagree (Jaccard 0.03--0.33) --- the intersection selects
+    features that \emph{both} methods agree are language-differential.
 
-\begin{center}
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{l c c c c}
-\toprule
-\textbf{Lang} & \textbf{Baseline} & \textbf{Zhao SVD} & \textbf{SAE $k$=20}
-  & \textbf{$\Delta$ vs base} \\
-\midrule
-en & 0.580 & 0.632 & \textbf{\textcolor{gain}{0.712}} & \textbf{\textcolor{gain}{+13.2pp}} \\
-es & 0.568 & 0.600 & \textbf{\textcolor{gain}{0.636}} & \textbf{\textcolor{gain}{+6.8pp}} \\
-zh & 0.624 & 0.624 & 0.596 & $-$2.8pp \\
-sw & 0.320 & 0.332 & 0.296 & $-$2.4pp \\
-bn & 0.564 & 0.564 & \textcolor{loss}{0.480} & \textbf{\textcolor{loss}{$-$8.4pp}} \\
-\midrule
-\textbf{avg} & 0.531 & 0.550 & 0.544 & +1.3pp \\
-\bottomrule
-\end{tabular}
-\end{center}
+  \end{block}
 
-\vspace{0.3em}
+  \begin{block}{3. The Procedure Works}
 
-\textbf{Key finding:} the per-language pattern is sharp and predictable.
+    Ablate top-$k$ candidate features per language at layer 17 using
+    directional (QR-orthogonalized) projection.
+    $k{=}20$ selected on 50-prompt dev split.
 
-\begin{itemize}
-  \item \textbf{en} (+13.2pp) and \textbf{bn} ($-$8.4pp) are both statistically
-        significant (non-overlapping bootstrap 95\% CIs at $n=250$).
-  \item The pattern correlates with \emph{feature profile}: per-feature ablation
-        shows en's top features affect \emph{only} perplexity (clean language features),
-        while bn's features affect \emph{both} perplexity and accuracy (entangled).
-  \item \textbf{ppl-$\Delta$ $\times$ acc-$\Delta$ scatter} (right) visualizes this:
-        en clusters in the ``language-only'' zone; bn in the ``shared'' zone.
-\end{itemize}
+    \begin{center}
+    \renewcommand{\arraystretch}{1.15}
+    \begin{tabular}{l c c c}
+    \toprule
+    \textbf{Lang} & \textbf{Baseline} & \textbf{Zhao SVD} & \textbf{SAE ablation} \\
+    \midrule
+    en & 0.580 & 0.632 & \textbf{0.712} \\
+    zh & 0.624 & 0.624 & 0.596 \\
+    es & 0.568 & 0.600 & \textbf{0.636} \\
+    bn & 0.564 & 0.564 & 0.480 \\
+    sw & 0.320 & 0.332 & 0.296 \\
+    \midrule
+    \textbf{Mean} & 0.531 & 0.550 & 0.544 \\
+    \bottomrule
+    \end{tabular}
+    \end{center}
 
-\vspace{0.3em}
-\textbf{Supporting results:}
-\begin{itemize}
-  \item \textbf{Language fidelity:} SAE preserves output language better than
-        Zhao for en (+3.2pp) and es (+4.8pp); bn drops ($-$12.8pp) --- predicted
-        by its entangled profile
-  \item \textbf{Layer dependence:} inverted-U peaking at L22 (+6.1pp avg).
-        L29 ablation hurts ($-$5.5pp) --- late-layer features are too entangled
-  \item \textbf{Controls:} random feature ablation $=$ no signal;
-        Deng-only (Method A) does better on en but worse on bn
-\end{itemize}
-}
+    Mean accuracy under SAE ablation (0.544) is comparable to Zhao's
+    subspace baseline (0.550), confirming that individual-feature ablation
+    replicates the subspace-level effect.
+    SAE ablation outperforms Zhao for English (+8.0pp) and Spanish (+3.6pp),
+    suggesting feature-level targeting can be more precise than subspace
+    projection for some languages.
 
-% ------------------------------------------------------------------
-% PANEL 3: Mechanism --- Capacity Competition
-% ------------------------------------------------------------------
-\column{0.32}
-\block{3. Mechanism: Capacity Competition}{
+  \end{block}
 
-\textbf{Setup.} Ablate top-20 language features at L17, measure activation
-change of 21 candidate reasoning features (forward-only, 50 problems $\times$
-5 langs). Wilcoxon signed-rank test per (lang, feature).
+\end{column}
 
-\vspace{0.5em}
+\separatorcolumn
 
-\textbf{Headline:} ablating language features \textbf{releases dormant
-reasoning features}.
+% =====================================================================
+% COLUMN 2
+% =====================================================================
+\begin{column}{\colwidth}
 
-\begin{center}
-\renewcommand{\arraystretch}{1.1}
-\begin{tabular}{l r r r r}
-\toprule
-\textbf{Lang} & \textbf{Feature} & \textbf{Clean} & \textbf{Ablated} & \textbf{$\Delta$} \\
-\midrule
-sw & 96 & 0 & 7036 & \textcolor{gain}{+7036} \\
-es & 96 & 0 & 2856 & \textcolor{gain}{+2856} \\
-en & 96 & 0 & 2577 & \textcolor{gain}{+2577} \\
-zh & 96 & 0 & 2501 & \textcolor{gain}{+2501} \\
-bn & 96 & 0 & 2345 & \textcolor{gain}{+2345} \\
-\midrule
-en & 34 & 2177 & 0 & \textcolor{loss}{$-$2177} \\
-\bottomrule
-\end{tabular}
-\end{center}
-\vspace{0.2em}
-{\small All $p < 1.8 \times 10^{-15}$ (Wilcoxon).}
+  \begin{alertblock}{4. But What Does It Mean to Be a Language Feature?}
 
-\vspace{0.5em}
+    Zhao identifies the subspace on translated math problems; we identify
+    our SAE features on MGSM. Both identifications happen on math content.
+    Whether the resulting components generalize as language features on
+    neutral text has not been previously tested.
 
-\textbf{Two patterns:}
-\begin{enumerate}
-  \item \textbf{Dormant $\to$ active:} Feature 96 has zero activation normally
-        but explodes to 2345--7036 across all 5 languages when language features
-        are removed. These are \emph{released} reasoning features.
-  \item \textbf{Active $\to$ suppressed:} Feature 34 collapses from $\sim$2177
-        to 0 --- representational space gets reclaimed.
-\end{enumerate}
+    \heading{A. Causal profiling of individual features}
+    Not all statistically-identified candidates behave alike.
+    We ablate each of the top-5 A$\cap$B features per language individually
+    and measure (i)~perplexity delta on target-language text and
+    (ii)~accuracy delta on MGSM reasoning.
+    A feature is tagged \textbf{LANGUAGE} if ablation raises perplexity
+    but does not hurt accuracy (language-only);
+    \textbf{SHARED} if it raises perplexity \emph{and} drops accuracy
+    (language and reasoning entangled).
 
-\textbf{Direct evidence:} language and reasoning features \emph{compete for
-residual-stream capacity}. Removing language features doesn't just turn off
-language outputs --- it actively releases dormant reasoning features.
+    \begin{center}
+    \renewcommand{\arraystretch}{1.1}
+    \small
+    \begin{tabular}{l r r r r}
+    \toprule
+    \textbf{Lang} & \textbf{LANG} & \textbf{SHARED} & \textbf{REAS.} & \textbf{JUNK} \\
+    \midrule
+    en & \textbf{5} & 0 & 0 & 0 \\
+    es & \textbf{3} & 0 & 1 & 1 \\
+    zh & 3 & 2 & 0 & 0 \\
+    sw & 2 & \textbf{3} & 0 & 0 \\
+    bn & 0 & \textbf{5} & 0 & 0 \\
+    \bottomrule
+    \end{tabular}
+    \end{center}
 
-\vspace{0.3em}
-\textbf{Downstream cascade:}
-\begin{itemize}
-  \item L17 ablation propagates to L29: Swahili's top monolinguality feature
-        (f8612, $\nu=5293$) shifts by $|\Delta|=6896$
-  \item Attention entropy reorganizes at L22/L29 (significant in 4/5 languages)
-  \item en/bn: attention becomes more \emph{peaked} (focused);
-        es/sw: more \emph{spread} (uncertain)
-\end{itemize}
-}
+    English's top-5 are all cleanly LANGUAGE; Bengali's are all SHARED.
+    This directly predicts the asymmetry in Panel~3: ablating clean language
+    features helps; ablating shared features hurts.
 
+    \heading{B. Humanly-interpretable features --- through Neuronpedia}
+    We look up LANGUAGE-tagged features on Neuronpedia to check whether
+    they correspond to recognizable language markers.
+    For \textbf{English and Spanish}, top features map to recognizable
+    language markers --- and ablation \emph{outperforms} Zhao
+    (en~+8.0pp, es~+3.6pp over SVD).
+    For \textbf{Bengali and Swahili}, none of the top features map to
+    recognizable language markers --- and ablation \emph{underperforms}
+    Zhao (bn~$-$8.4pp, sw~$-$3.6pp vs baseline).
+
+    % TODO: replace with actual Neuronpedia screenshots
+    % Suggested features to screenshot:
+    %   - en f166 (LANGUAGE, +0.200 acc) — likely interpretable as "English"
+    %   - sw f728 (LANGUAGE, +0.080 acc) — likely NOT interpretable as "Swahili"
+    \begin{figure}
+      \centering
+      % \includegraphics[width=0.48\linewidth]{figures/neuronpedia_en166.png}
+      % \hfill
+      % \includegraphics[width=0.48\linewidth]{figures/neuronpedia_sw728.png}
+      \vspace{4cm} % placeholder space for screenshots
+      \caption{Left: en feature 166 (LANGUAGE, $\Delta$acc$=$+0.200) ---
+        clearly English-related on Neuronpedia.
+        Right: sw feature 728 (LANGUAGE, $\Delta$acc$=$+0.080) ---
+        no recognizable Swahili markers.}
+    \end{figure}
+
+    The languages where features are least interpretable as ``language''
+    are exactly the languages where feature-level ablation fails.
+
+    \heading{C. FLORES generalization failure}
+    We test whether MGSM-derived features behave as language features on
+    FLORES-200 (1012 parallel translations, no math).
+
+    \begin{center}
+    \renewcommand{\arraystretch}{1.1}
+    \small
+    \begin{tabular}{l c c}
+    \toprule
+    \textbf{Metric} & \textbf{Value} & \textbf{Pass?} \\
+    \midrule
+    Probe transfer & 0.714 & \textcolor{loss}{\textbf{FAIL}} {\scriptsize (need $>$0.80)} \\
+    LANG/SHARED sep. & $p{=}0.51$ & \textcolor{loss}{\textbf{FAIL}} {\scriptsize (need $<$0.01)} \\
+    $\nu$ corr.\ en & 0.76 & \textcolor{gain}{\checkmark} \\
+    $\nu$ corr.\ zh & 0.73 & \textcolor{gain}{\checkmark} \\
+    $\nu$ corr.\ es & 0.23 & \textcolor{loss}{$\times$} \\
+    $\nu$ corr.\ bn & $-$0.21 & \textcolor{loss}{$\times$} \\
+    $\nu$ corr.\ sw & 0.88 & \textcolor{gain}{\checkmark} \\
+    \bottomrule
+    \end{tabular}
+    \end{center}
+
+    \heading{D. FLORES vs MGSM feature overlap}
+    Running the \emph{same} procedure on FLORES vs MGSM yields largely
+    \emph{different} feature sets (layer~17).
+
+    \begin{figure}
+      \centering
+      \includegraphics[width=0.72\linewidth]{figures/jaccard_overlap.pdf}
+      \vspace*{-0.5em}
+      \caption{Same procedure, different domain $\to$ different features.
+        English (J$=$0.15) and Spanish (J$=$0.19) share almost none.}
+    \end{figure}
+
+    \textbf{The distinction:} ``language feature'' as used in our pipeline is a
+    \textbf{procedural tag} --- derived from cross-language statistical
+    comparison on a specific dataset --- not an \textbf{intrinsic property}
+    of the feature.
+
+  \end{alertblock}
+
+\end{column}
+
+\separatorcolumn
+
+% =====================================================================
+% COLUMN 3
+% =====================================================================
+\begin{column}{\colwidth}
+
+  \begin{block}{5. Mechanism: Capacity Competition}
+
+    Regardless of \emph{what} the ablated features encode, the mechanism is
+    capacity competition: language and reasoning features compete for
+    residual-stream bandwidth.
+
+    Ablate top-20 features at L17, measure activation change of 21 candidate
+    reasoning features (50 problems $\times$ 5 langs, Wilcoxon signed-rank).
+
+    \begin{figure}
+      \centering
+      \includegraphics[width=0.78\linewidth]{figures/feat96_dormant.pdf}
+      \vspace*{-0.5em}
+      \caption{Feature 96 is completely dormant at baseline but activates
+        strongly (2345--7036) across all languages after ablation.
+        All $p < 1.8 \times 10^{-15}$.}
+    \end{figure}
+
+    \textbf{Dormant $\to$ active:} Feature 96 is zero normally but explodes
+    to 2345--7036 when features are removed --- released reasoning capacity.
+    \textbf{Active $\to$ suppressed:} Feature 34 collapses from 2177 to 0 ---
+    representational space reclaimed.
+    This explains why ablation works \emph{regardless of what the ablated
+    features ``are''}: it is about representational pressure, not about
+    removing ``language.''
+
+  \end{block}
+
+  \begin{exampleblock}{6. Takeaways}
+
+    \begin{enumerate}
+      \item \textbf{The procedure works.}
+            Statistical ``language feature'' identification + ablation
+            reproduces and extends Zhao's gains (en~+13.2pp, es~+6.8pp).
+
+      \item \textbf{But these are not reliably language features.}
+            They don't generalize out of domain (probe transfer~0.714,
+            separation $p{=}0.51$), don't match Neuronpedia auto-interp,
+            and change when the domain changes (en Jaccard$=$0.15).
+
+      \item \textbf{The label is procedural.}
+            ``Language feature'' captures task-specific co-occurrence with
+            language identity, not an intrinsic property.
+
+      \item \textbf{Capacity competition is the mechanism.}
+            Ablation releases dormant reasoning features ($\Delta$ up to
+            +7036, $p < 10^{-15}$) no matter what the ablated features ``are.''
+    \end{enumerate}
+
+    \heading{Limitations}
+    \begin{itemize}
+      \item Single model (Gemma 3 4B IT), single task (MGSM), 5 languages
+      \item Global $k{=}20$ suboptimal; per-language $k$ would improve zh/sw/bn
+      \item Dev/test overlap in profiling step
+    \end{itemize}
+
+    \heading{References}
+    {\small
+    Zhao et al.\ (NeurIPS 2025);
+    Deng et al.\ (2025);
+    Bricken et al.\ (2023);
+    Lieberum et al.\ (2024)
+    }
+
+  \end{exampleblock}
+
+\end{column}
+
+\separatorcolumn
 \end{columns}
-
-% ===================================================================
-% ROW 2
-% ===================================================================
-\begin{columns}
-
-% ------------------------------------------------------------------
-% PANEL 4: Per-feature ablation scatter (supporting, de-emphasized)
-% ------------------------------------------------------------------
-\column{0.25}
-\block{4. Per-Feature Ablation Profile}{
-
-Individual ablation of top-5 A$\cap$B candidates per language at L17.
-Each feature measured on perplexity-$\Delta$ (language disruption) and
-accuracy-$\Delta$ (reasoning disruption).
-
-\vspace{0.3em}
-
-\begin{center}
-\renewcommand{\arraystretch}{1.1}
-{\small
-\begin{tabular}{l r r r r}
-\toprule
-\textbf{Lang} & \textbf{Lang-only} & \textbf{Shared} & \textbf{Reas.} & \textbf{Junk} \\
-\midrule
-en & \textbf{5} & 0 & 0 & 0 \\
-es & \textbf{3} & 0 & 1 & 1 \\
-zh & 3 & 2 & 0 & 0 \\
-sw & 2 & \textbf{3} & 0 & 0 \\
-bn & 0 & \textbf{5} & 0 & 0 \\
-\bottomrule
-\end{tabular}
-}
-\end{center}
-
-\vspace{0.3em}
-
-The degree of language--reasoning entanglement \textbf{varies sharply across
-languages}: English has cleanly separable language features (all 5 affect
-only perplexity); Bengali has none (all 5 also affect accuracy).
-
-\vspace{0.2em}
-
-This per-feature profile \emph{predicts} the group ablation outcome in Panel 2:
-more clean language features $\to$ bigger accuracy gain.
-
-%% Scatter plot placeholder
-%\begin{center}
-%\includegraphics[width=0.85\linewidth]{figures/ppl_acc_scatter.png}
-%\end{center}
-}
-
-% ------------------------------------------------------------------
-% PANEL 5: The Twist --- FLORES generalization failure
-% ------------------------------------------------------------------
-\column{0.42}
-\block{5. The Features Don't Generalize Out-of-Domain}{
-
-The per-feature profiles predict MGSM outcomes. \textbf{But are these features
-really encoding \emph{language}?} We test on FLORES-200 (1012 parallel
-translations, content held constant across languages).
-
-\vspace{0.5em}
-
-\begin{center}
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{l c c c c c}
-\toprule
-\textbf{Metric} & \textbf{en} & \textbf{zh} & \textbf{es} & \textbf{bn} & \textbf{sw} \\
-\midrule
-$\nu$ correlation (MGSM$\leftrightarrow$FLORES) &
-  \textcolor{gain}{0.76~\checkmark} & \textcolor{gain}{0.73~\checkmark} &
-  \textcolor{loss}{0.23~\texttimes} & \textcolor{loss}{$-$0.21~\texttimes} &
-  \textcolor{gain}{0.88~\checkmark} \\
-Target activation ratio &
-  \textcolor{gain}{2.0x~\checkmark} & \textcolor{gain}{6.2x~\checkmark} &
-  \textcolor{loss}{1.4x~\texttimes} & \textcolor{gain}{5.4x~\checkmark} &
-  \textcolor{gain}{6.7x~\checkmark} \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\vspace{0.3em}
-
-\begin{minipage}[t]{0.48\linewidth}
-\textbf{Global metrics (all fail):}
-\begin{itemize}
-  \item Probe transfer (MGSM$\to$FLORES): \textcolor{loss}{\textbf{0.714}} (need $>$0.80)
-  \item Language-only vs Shared separation: \textcolor{loss}{$p=0.51$} (need $<$0.01)
-  \item Monolinguality correlation: 3/5 pass, 2/5 fail
-\end{itemize}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.48\linewidth}
-\textbf{What this means:}
-\begin{itemize}
-  \item The per-feature profiles are an \textbf{effective in-domain prediction tool}
-        (they predict intervention outcomes on MGSM)
-  \item But the underlying features are \textbf{not stable, general-purpose
-        language encodings}
-  \item The interference is \textbf{partially domain-specific} --- tied to how
-        language interacts with \emph{this particular task}
-\end{itemize}
-\end{minipage}
-
-\vspace{0.5em}
-
-\textbf{New experiment --- FLORES-derived feature ablation:}
-\begin{enumerate}
-  \item Run Phase 1 methods on FLORES activations $\to$ find ``general language
-        features'' (domain-independent)
-  \item Ablate those features on MGSM math problems
-  \item Compare to MGSM-derived feature ablation
-\end{enumerate}
-If FLORES-derived features also improve reasoning when ablated $\to$ the
-interference is from general language encoding. If only MGSM-derived features
-help $\to$ the interference is domain-specific. \emph{(Results TBD --- experiment
-in notebook 09.)}
-}
-
-% ------------------------------------------------------------------
-% PANEL 6: Takeaways
-% ------------------------------------------------------------------
-\column{0.33}
-\block{6. Takeaways \& Limitations}{
-
-\textbf{Main findings:}
-
-\begin{enumerate}
-  \item \textbf{Per-feature ablation profiles predict intervention outcomes.}
-        Individual ppl-$\Delta$ $\times$ acc-$\Delta$ measurements predict whether
-        group ablation helps or hurts, per language.
-
-  \item \textbf{English has cleanly separable language features; Bengali doesn't.}
-        The degree of language--reasoning entanglement varies sharply across
-        languages. This explains asymmetric results from Zhao et al.
-
-  \item \textbf{Capacity competition is the mechanism.}
-        Removing language features releases dormant reasoning features
-        ($\Delta$ up to +7036, $p < 10^{-15}$), with cascading effects
-        through L22 and L29.
-
-  \item \textbf{In-domain features don't generalize out-of-domain.}
-        FLORES validation shows the features are partially task-specific,
-        not purely language-encoding.
-\end{enumerate}
-
-\vspace{0.5em}
-
-\textbf{Limitations:}
-\begin{itemize}
-  \item Single model (Gemma 3 4B IT), single task (MGSM), 5 languages
-  \item Dev/test overlap in profiling step (top-5 selected on 25 problems)
-  \item FLORES-derived ablation experiment pending
-  \item Global $k=20$ is suboptimal --- per-language $k$ selection
-        would likely improve zh/sw/bn results
-\end{itemize}
-
-\vspace{0.5em}
-
-\textbf{References:}
-\begin{itemize}[itemsep=0.1em]
-  \item Zhao et al.\ (NeurIPS 2025) --- Language subspace removal via SVD
-  \item Deng et al.\ (2025) --- Monolinguality metric for SAE features
-  \item Bricken et al.\ (2023) --- Sparse autoencoders for mechanistic interp.
-  \item Lieberum et al.\ (2024) --- Gemma Scope SAE release
-\end{itemize}
-
-\vspace{0.5em}
-
-{\small\textcolor{gray}{Code: \texttt{github.com/kvrancic/nlp-project}}}
-}
-
-\end{columns}
+\end{frame}
 
 \end{document}
