@@ -804,6 +804,149 @@ That's a complete, publication-grade story.
 
 ---
 
+## Phase 3a controls — Capacity-competition audit (notebook 05b, complete) ⚠️ INVALIDATES Phase 3a HEADLINE
+
+**Date:** 2026-05-06.
+**Pod:** Prime Intellect H100 80GB PCIe (`216.81.248.114`), ~$3, ~25 min total compute.
+**Artifacts:** `results/phase3a_controls.pt`, `results/phase3a_alignment.pt`,
+`results/phase3a_controls_summary.csv`, `notebooks/runs/05b_capacity_controls.ipynb`,
+`docs/runs/phase3a_clean_20260506.log`,
+`scripts/phase3a_clean_variants.py`, `scripts/phase3a_alignment.py`.
+
+### Motivation
+
+Teammate raised a methodological concern: the 20 features ablated per
+language in Phase 3a are not all causally validated as LANGUAGE.
+After Phase 2b filtering, only en=5, zh=3, es=3, sw=2, bn=0 features per
+language are causally confirmed. The remaining 15+ are unfiltered Method-A
+backfills — could include reasoning, junk, or shared features. The
+"feature 96 release" headline could be a contamination artifact.
+
+We ran seven ablation variants on the same 50 dev problems × 5 languages,
+forward-only, all targeting feature 96 release at L17.
+
+### Variant table (Δ activation of feature 96, ablated − clean)
+
+```
+                    bn      en      es      sw      zh
+baseline_k20      2346    2577    2855    7036    2501    ← original Phase 3a
+top_A_k20         1847    3161    2387    5837    2576    ← Deng-style, no causal filter
+random_k20        3511    1455       0    1744       0    ← random k=20
+confirmed         skip    2246    6303       0    1263    ← Phase 2b LANGUAGE only
+f96_clean            2       0       0       0       0    ← LANG, with f=96-aligned features removed
+max_aligned_k20  19546   25177   21686   18860   21150    ← top-20 features aligned with W_enc[96]
+```
+
+### Diagnostic: subspace alignment
+
+For each ablation set, compute the projection of f=96's encoder direction
+W_enc[96] onto the QR-orthonormal basis of the ablation subspace. Across
+all 19 (variant, lang) data points, **subspace alignment with W_enc[96]
+correlates r = +0.68 with f=96 release magnitude**. Including the per-feature
+maximum cosine bumps r to +0.69.
+
+Three concrete contaminations identified:
+1. **Swahili `baseline_k20` includes f=96 itself** (top-A backfill let it through).
+   `dec96_alignment = 1.000`. The Δ=7036 sw highlight is f=96 ablated against itself,
+   unmasking its encoder bias of +2117.
+2. **9207 of 16384 features (56%) have |cosine| > 0.1 with W_enc[96] or W_dec[96]**.
+   Most "language" features the pipeline identifies are in this neighbourhood.
+3. **The Phase 2b confirmed LANGUAGE features themselves are alignment-overlapping**:
+   en {153,166,203,443,486}, zh {154,828,2037}, es {107,279,471} all have
+   |cos| > 0.1 with W_enc[96]/W_dec[96]. After excluding alignment-overlapping
+   features, *all five languages release Δf=96 ≈ 0*.
+
+### Mechanism (corrected)
+
+f=96 has an unusually large encoder bias `b_enc[96] = 2116.7`. Pre-activation
+of f=96 = W_enc[96]·d + b_enc[96]. When d's component along W_enc[96] is
+strongly negative, this cancels the bias and f=96 stays under threshold (≈0).
+Projecting out a subspace overlapping W_enc[96] removes the cancellation
+and unmasks the bias — f=96 fires at thousands.
+
+This is **not capacity competition.** It's encoder-bias unmasking.
+`max_aligned_k20` confirms the mechanism: ablating the top-20 features most
+aligned with W_enc[96] produces 8–10× the release of any "language" set,
+in *every* language, including languages where the original confirmed-set
+released zero. The alignment, not the language identity, is doing the work.
+
+### What is invalidated
+
+- The Phase 3a "killer result" of feature-96 release as evidence of
+  capacity competition is **invalidated**.
+- The sw Δ=7036 highlight is **invalidated** (f=96 ablated against itself).
+- The "release ↑ as confirmed-LANGUAGE count ↑" pattern (en > es > zh > sw > bn)
+  was a side-effect of how alignment-overlap correlates with the confirmed-LANGUAGE
+  filter, not a causal mechanism.
+
+### What survives
+
+- Phase 1 features (extraction, characterisation, A∩B intersection) — unchanged.
+- Phase 2a Zhao SVD baseline — unchanged.
+- Phase 2b H1 (SAE-targeted ablation reproduces some Zhao gains) — survives.
+  Ablation across 20 features at L17 still affects accuracy; the *mechanism*
+  for that effect is now in question (could be the same alignment confound
+  as Phase 3a) but the empirical accuracy delta is real.
+- Phase 2b H2 (fidelity-vs-accuracy tradeoff) — survives.
+- Phase 2b H3 (layer-wise contribution, L22 peaks) — independent of f=96, survives.
+- Phase 3b (circuit attribution at L22, L29) — needs same-style audit.
+- Phase 3c (attention entropy disruption) — independent mechanism, likely valid.
+
+### Methodological contribution
+
+The alignment-controlled ablation framework is itself novel. We propose:
+
+> Whenever a residual-stream SAE ablation study reports "ablating features
+> {S} releases feature t", report (a) the maximum |cos| between any direction
+> in span(W_dec[S]) and W_enc[t], and (b) results from `max_aligned_k20`
+> and `f96_clean` style controls. Feature releases below 8× the
+> max-aligned control should be discounted as alignment-mediated bias
+> unmasking, not as evidence of mechanistic feature interaction.
+
+This is publishable as a methodological correction — a reviewer-friendly
+finding even though it removes our headline.
+
+### Neuronpedia spot-check (orthogonal evidence)
+
+The user/teammate manually checked 6 of the 13 Phase 2b confirmed-LANGUAGE
+features on Neuronpedia (URL pattern: `https://www.neuronpedia.org/gemma-3-4b-it/17-gemmascope-2-res-16k/<F>`).
+Neuronpedia hosts the *correct* SAE (gemma-scope-2 on gemma-3-4b-it).
+Outcome:
+
+| Feature | Our tag | Neuronpedia auto-interp | Read |
+|---------|---------|-------------------------|------|
+| f=486 (en) | LANGUAGE | English instructions / chat template | ✓ matches |
+| f=166 (en) | LANGUAGE | Activates on English chat; pushes multilingual biographical tokens | polysemantic |
+| f=153 (en) | LANGUAGE | No auto-interp; logits push Unicode/Bengali/Sanskrit, suppress English | ambiguous (but f=153 is f=96-alignment-overlapping → fits the alignment story) |
+| f=107 (es) | LANGUAGE | "Sorry/Thank/আমি/Você/спасибо" — multilingual politeness anchor | NOT Spanish-specific |
+| f=356 (sw) | LANGUAGE | "to convey"; non-Latin scripts in general | NOT Swahili-specific |
+| f=7607 (sw, untested backfill) | (untested) | "Addis Ababa, Rwanda" — geographic | not language |
+
+Pattern: most pipeline-tagged "language X" features are actually
+**chat-template-position features** (fire on `model↵Okay,here's…` contexts)
+that get probe-correlated to lang X because MGSM uses chat templates.
+This is consistent with the alignment story: those chat-template features
+share residual-stream subspace, and that subspace happens to overlap with
+W_enc[96]. Auto-interp captures the most semantically salient pattern,
+which is rarely the language identity.
+
+### Reframed paper contribution
+
+Old: "We discover capacity competition between language and reasoning features."
+
+New: "We show that apparent capacity-competition findings in residual-stream
+SAE ablation studies can be entirely explained by encoder-bias unmasking
+when the ablation subspace overlaps with a downstream feature's encoder
+direction. We propose alignment-controlled ablation as a methodological
+correction. Applied to Gemma 3 4B IT × MGSM, the corrected pipeline
+shows real cross-lingual transfer effects in Phase 2b H1/H2/H3 results,
+no capacity competition, and [pending: status of Phase 3b/3c after
+alignment audit]."
+
+Less flashy, more honest, and the alignment finding is genuinely novel.
+
+---
+
 ## Phase 4 — Paper compilation (pending)
 
 `06_paper_figures.ipynb` loads all `results/*.pt` and produces publication
@@ -819,6 +962,7 @@ figures + LaTeX-ready tables + appends to this `findings.md`.
 | H1 (reframed) | Causal LANGUAGE feature count per language predicts gain magnitude | en (5/5)→+13.2, es (3/5)→+6.8, zh (3/5+1S)→-2.8, sw (2/5+3S)→-2.4, bn (0/5)→-8.4 — monotonic in clean-feature count | **Strongly supported** (the paper's headline finding) |
 | H2 | SAE ablation preserves output language fidelity better than SVD | SAE > Zhao on en (+3.2), es (+4.8), zh (+0.5); SAE < Zhao on bn (-12.8), sw (-0.4). bn loss is *predicted* by all-SHARED taxonomy. | **Supported with caveat**: holds for clean-feature languages |
 | H3 | Ablation gain is layer-dependent, peaks at middle layers | L22 = +0.061 avg (peak, all langs improve); L9 = +0.041; L17 = −0.035; L29 = −0.055. Inverted-U around L22. | **Strongly supported** |
+| Phase 3a (capacity competition) | Ablating LANGUAGE features releases dormant REASONING features (f=96) | After alignment-controlled audit (notebook 05b): f=96 release fully explained by encoder-bias unmasking. `max_aligned_k20` releases 8–10× more than any LANGUAGE set. `f96_clean` (LANG with f=96-aligned features removed) releases zero across all 5 langs. | **Refuted** as a capacity-competition claim. Surviving contribution is the methodological correction itself. |
 
 ---
 

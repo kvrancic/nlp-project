@@ -39,6 +39,9 @@ results/*.zip
 !results/phase2_zhao_baseline.pt
 !results/phase2_ablation.pt
 !results/phase3_interaction.pt
+!results/phase3a_controls.pt
+!results/phase3a_alignment.pt
+!results/phase3a_controls_summary.csv
 data/
 *.safetensors
 
