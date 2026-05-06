@@ -1,6 +1,7 @@
 """Causal interventions: feature ablation and steering via nnsight."""
 
 import torch
+from tqdm import tqdm
 
 from src.model import get_decoder_layers
 
@@ -42,6 +43,36 @@ def directional_ablation(
     coeffs = x @ Q  # (..., k)
     proj = coeffs @ Q.T  # (..., d_model)
     return (x - proj).to(activation.dtype)
+
+
+def clamped_ablation(
+    activation: torch.Tensor,
+    sae,
+    feature_indices: list[int],
+) -> torch.Tensor:
+    """Remove specific SAE features' contribution from activation.
+
+    Encodes activation through SAE, computes the contribution of target
+    features (acts @ W_dec[features]), and subtracts only that from the
+    original activation. No full reconstruction = no reconstruction error.
+    """
+    orig_shape = activation.shape
+    flat = activation.view(-1, orig_shape[-1])
+
+    sae_dtype = next(sae.parameters()).dtype
+    flat_cast = flat.to(sae_dtype)
+
+    # Encode to get feature activations
+    feature_acts = sae.encode(flat_cast)  # (n, n_features)
+
+    # Compute contribution of TARGET features only
+    W_dec = sae.W_dec.data[feature_indices]       # (k, d_model)
+    acts = feature_acts[:, feature_indices]         # (n, k)
+    delta = acts @ W_dec                            # (n, d_model)
+
+    # Subtract just those features' contribution
+    result = flat_cast - delta
+    return result.to(activation.dtype).view(orig_shape)
 
 
 def get_sae_decoder_directions(sae, feature_indices: list[int], sae_type: str = "saelens") -> torch.Tensor:
@@ -158,3 +189,103 @@ def run_generate_with_hooks(
         handles.clear()
 
     return outputs
+
+
+def _make_clamped_hook(sae, feature_indices, input_lens):
+    """Hook that applies clamped_ablation at the last input token per example."""
+    def hook_fn(module, input, output):
+        hidden = output if isinstance(output, torch.Tensor) else output[0]
+        is_tuple = not isinstance(output, torch.Tensor)
+
+        for i, length in enumerate(input_lens):
+            if hidden.shape[1] >= length:
+                pos = length - 1
+                hidden[i, pos:pos+1, :] = clamped_ablation(
+                    hidden[i, pos:pos+1, :], sae, feature_indices
+                )
+
+        return hidden if not is_tuple else (hidden,) + output[1:]
+    return hook_fn
+
+
+def _make_directional_hook(directions, input_lens, device):
+    """Hook that applies directional_ablation at the last input token per example."""
+    directions_dev = directions.to(device)
+
+    def hook_fn(module, input, output):
+        hidden = output if isinstance(output, torch.Tensor) else output[0]
+        is_tuple = not isinstance(output, torch.Tensor)
+
+        for i, length in enumerate(input_lens):
+            if hidden.shape[1] >= length:
+                pos = length - 1
+                hidden[i, pos:pos+1, :] = directional_ablation(
+                    hidden[i, pos:pos+1, :], directions_dev
+                )
+
+        return hidden if not is_tuple else (hidden,) + output[1:]
+    return hook_fn
+
+
+def run_generate_with_hooks_batched(
+    model,
+    tokenizer,
+    texts: list[str],
+    hook_config: dict,
+    method: str = "clamped",
+    max_new_tokens: int = 384,
+    batch_size: int = 8,
+    device: str = "cuda",
+) -> list[str]:
+    """Batched generation with ablation hooks.
+
+    Args:
+        model: HuggingFace model.
+        tokenizer: Tokenizer.
+        texts: Input texts.
+        hook_config: Dict mapping layer_idx to hook data.
+            For method="clamped": layer_idx -> (sae, feature_indices)
+            For method="directional": layer_idx -> (sae, feature_indices)
+                (decoder directions extracted internally)
+        method: "clamped" or "directional".
+        max_new_tokens: Max tokens to generate.
+        batch_size: Batch size.
+        device: Device.
+
+    Returns:
+        List of generated text strings.
+    """
+    tokenizer.padding_side = "left"
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    all_outputs = []
+    decoder_layers = get_decoder_layers(model)
+
+    for i in tqdm(range(0, len(texts), batch_size), desc=f"Generating ({method})"):
+        batch_texts = texts[i:i + batch_size]
+        inputs = tokenizer(batch_texts, return_tensors="pt", padding=True).to(device)
+        input_lens = inputs["attention_mask"].sum(dim=1)
+
+        handles = []
+        for layer_idx, (sae, feat_ids) in hook_config.items():
+            if method == "clamped":
+                hook_fn = _make_clamped_hook(sae, feat_ids, input_lens)
+            else:
+                directions = get_sae_decoder_directions(sae, feat_ids)
+                hook_fn = _make_directional_hook(directions, input_lens, device)
+            handle = decoder_layers[layer_idx].register_forward_hook(hook_fn)
+            handles.append(handle)
+
+        with torch.no_grad():
+            gen_ids = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
+
+        for j, gen in enumerate(gen_ids):
+            input_len = input_lens[j].item()
+            text = tokenizer.decode(gen[input_len:], skip_special_tokens=True)
+            all_outputs.append(text)
+
+        for h in handles:
+            h.remove()
+
+    return all_outputs
