@@ -78,23 +78,18 @@
     \emph{removing} language-specific representations \emph{improves}
     reasoning. They computed per-language mean hidden states on translated math
     problems, extracted a language subspace via SVD, and projected it out at
-    inference ($\hat{h} = h - \lambda\, M_s M_s^\top h$).
-
-    Ablation consistently improves reasoning, especially for low-resource languages.
+    inference ($\hat{h} = h - \lambda\, M_s M_s^\top h$). Ablation consistently improves reasoning, especially for low-resource languages.
 
     \heading{SAE motivation}
 
-    What are these features doing, and what are they encoding?
-
-    Zhao's method operates on entire subspaces and cannot identify individual
-    features or explain the mechanism. We decompose the effect to individual 
-    \textit{SAE features} to characterize both the mechanism and the nature of 
+    It is not clear how this ablation in fact removes language-specific representations.
+    Because Zhao's method operates on entire subspaces, it cannot identify individual
+    features or explain the mechanism. We propose using SAEs to decompose the effect at the individual feature level, to characterize both the mechanism and the nature of 
     the ablated representations.
 
     \heading{Setup}
-    Our experiments were conducted on Gemma 3 4B IT, using Gemma Scope 2 pre-trained SAEs on layer 17.
-    We selected features via intersection of top-$k$ by monolinguality ($\nu$) with top-$k$ by language-probe importance (``A$\cap$B'').
-    We ablated features via directional QR-orthogonalized projection, with $k{=}20$ per language.
+    Our experiments were conducted on Gemma 3 4B IT, using Gemma Scope 2 pre-trained SAEs on layer 17, with the MGSM reasoning dataset.
+    We selected features via intersection of top-$k$ by monolinguality ($\nu$) with top-$k$ by language-probe importance (``A$\cap$B''); ablating features via directional QR-orthogonalized projection, with $k{=}20$ per language. %TODO: this is unclear/contradictory, need to clarify. Also explain what A$\cap$B means.
 
   \end{block}
 
@@ -125,6 +120,7 @@
     SAE ablation outperforms Zhao for English (+8.0pp over Zhao) and Spanish
     (+3.6pp), suggesting feature-level targeting can be more precise than
     subspace projection for some languages.
+    %TODO: elaborate on the implication (SAE is a valid strategy); find differences in languages.
 
   \end{block}
 
@@ -162,6 +158,8 @@
 
     \textbf{Active $\to$ suppressed:} Feature 34 collapses from 2177 to 0. The reasoning capacity is reclaimed by the reasoning-specific features.
 
+    %TODO: explain the features (96, 34, etc) in more detail.
+
     Therefore, ablation reallocates computational capacity, which occurs across all five languages, regardless of whether overall accuracy improves.
 
   \end{alertblock}
@@ -178,13 +176,10 @@
   \begin{block}{4. What Are These Features?}
     The procedure selects features whose ablation reliably triggers capacity
     reallocation.
-    But what do these features represent?
-    Cross-domain comparison raises questions about whether they are
-    ``language features'' in a domain-general sense.
+    But what do these features represent? We would like to know if these features encode language identity in a domain-general sense.
 
     \heading{Cross-domain feature instability}
-    Running the \emph{same} selection procedure (A$\cap$B) on FLORES-200
-    (1012 parallel translations, no math content) versus MGSM yields
+    Running the selection procedure (A$\cap$B) on FLORES-200, consisting of parallel translations of the same sentences, yields
     substantially different feature sets for every language:
 
     \begin{figure}
@@ -205,7 +200,7 @@
     These observations do not invalidate the ablation effect, 
     but they suggest the notion of a ``language feature'' is a
     procedure-defined label tied to input content; this is independent of whether the selected
-    features encode language identity in a domain-general sense
+    features encode language identity in a domain-general sense.
 
   \end{block}
 
