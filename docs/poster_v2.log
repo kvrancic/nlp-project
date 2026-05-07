@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.26 (TeX Live 2024) (preloaded format=pdflatex 2025.1.22)  7 MAY 2026 02:35
+This is pdfTeX, Version 3.141592653-2.6-1.40.26 (TeX Live 2024) (preloaded format=pdflatex 2025.1.22)  7 MAY 2026 02:46
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1132,35 +1132,35 @@ File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 File: mt-msb.cfg 2005/06/01 v1.0 microtype config. file: AMS symbols (b) (RS)
 )
 LaTeX Font Info:    Font shape `T1/phv/m/it' in size <28.61> not available
-(Font)              Font shape `T1/phv/m/sl' tried instead on input line 253.
-LaTeX Font Info:    Calculating math sizes for size <28.61> on input line 253.
+(Font)              Font shape `T1/phv/m/sl' tried instead on input line 248.
+LaTeX Font Info:    Calculating math sizes for size <28.61> on input line 248.
 
 
 LaTeX Font Warning: Font shape `OMX/cmex/m/n' in size <28.61> not available
-(Font)              size <24.88> substituted on input line 253.
+(Font)              size <24.88> substituted on input line 248.
 
 
 LaTeX Font Warning: Font shape `OMX/cmex/m/n' in size <20.0269> not available
-(Font)              size <20.74> substituted on input line 253.
+(Font)              size <20.74> substituted on input line 248.
 
 <figures/feat96_dormant.pdf, id=17, 498.65108pt x 280.73447pt>
 File: figures/feat96_dormant.pdf Graphic file (type pdf)
 <use figures/feat96_dormant.pdf>
-Package pdftex.def Info: figures/feat96_dormant.pdf  used on input line 253.
+Package pdftex.def Info: figures/feat96_dormant.pdf  used on input line 248.
 (pdftex.def)             Requested size: 707.53775pt x 398.35445pt.
-LaTeX Font Info:    Calculating math sizes for size <23.85> on input line 253.
+LaTeX Font Info:    Calculating math sizes for size <23.85> on input line 248.
 
 LaTeX Font Warning: Font shape `OMX/cmex/m/n' in size <23.85> not available
-(Font)              size <24.88> substituted on input line 253.
+(Font)              size <24.88> substituted on input line 248.
 
 
 LaTeX Font Warning: Font shape `OMX/cmex/m/n' in size <16.69493> not available
-(Font)              size <17.28> substituted on input line 253.
+(Font)              size <17.28> substituted on input line 248.
 
 <figures/jaccard_overlap.pdf, id=18, 498.53188pt x 316.86946pt>
 File: figures/jaccard_overlap.pdf Graphic file (type pdf)
 <use figures/jaccard_overlap.pdf>
-Package pdftex.def Info: figures/jaccard_overlap.pdf  used on input line 253.
+Package pdftex.def Info: figures/jaccard_overlap.pdf  used on input line 248.
 (pdftex.def)             Requested size: 853.38043pt x 542.44225pt.
 [1{/usr/local/texlive/2024/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/usr/l
 ocal/texlive/2024/texmf-dist/fonts/enc/dvips/base/8r.enc}
@@ -1192,11 +1192,11 @@ Package rerunfilecheck Info: File `poster_v2.out' has not changed.
 (rerunfilecheck)             Checksum: D41D8CD98F00B204E9800998ECF8427E;0.
  ) 
 Here is how much of TeX's memory you used:
- 25465 strings out of 474116
- 483013 string characters out of 5743682
+ 25458 strings out of 474116
+ 482951 string characters out of 5743682
  1981187 words of memory out of 5000000
  47093 multiletter control sequences out of 15000+600000
- 634659 words of font info for 200 fonts, out of 8000000 for 9000
+ 634133 words of font info for 195 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  128i,18n,123p,1006b,1114s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2024/texmf-dist/fonts/type1/public/lm/lmmi12.pfb></usr/lo
@@ -1205,7 +1205,7 @@ cal/texlive/2024/texmf-dist/fonts/type1/public/lm/lmr17.pfb></usr/local/texlive
 f-dist/fonts/type1/urw/helvetic/uhvb8a.pfb></usr/local/texlive/2024/texmf-dist/
 fonts/type1/urw/helvetic/uhvr8a.pfb></usr/local/texlive/2024/texmf-dist/fonts/t
 ype1/urw/helvetic/uhvro8a.pfb>
-Output written on poster_v2.pdf (1 page, 103290 bytes).
+Output written on poster_v2.pdf (1 page, 102826 bytes).
 PDF statistics:
  185 PDF objects out of 1000 (max. 8388607)
  55 compressed objects within 1 object stream
