@@ -2,7 +2,7 @@
 % Compile with: pdflatex poster_v2.tex
 % Uses Gemini beamerposter theme, red-orange color scheme
 
-\documentclass[final]{beamer}
+\documentclass[final,20pt]{beamer}
 
 % ====================
 % Packages
@@ -10,7 +10,12 @@
 
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[size=a0,orientation=landscape,scale=1.0]{beamerposter}
+% Poster canvas size (beamerposter expects custom sizes in *centimeters*):
+% - 36" x 48" (landscape): width=121.92cm, height=91.44cm
+% - 42" x 48" (landscape): width=121.92cm, height=106.68cm
+%
+\usepackage[size=custom,width=121.92,height=91.44,orientation=landscape,scale=1.15]{beamerposter}
+% \usepackage[size=custom,width=121.92,height=106.68,orientation=landscape,scale=1.0]{beamerposter}
 \usetheme{gemini}
 \usecolortheme{redorange}
 \usepackage{graphicx}
@@ -33,8 +38,7 @@
 % Title
 % ====================
 
-\title{Capacity Composition Behind the Zhao Effect:\\
-  SAE-Based Decomposition of Language-Reasoning Interference}
+\title{Capacity Composition Behind SAE-Based Decomposition of Language-Reasoning Interference}
 
 \author{Karlo Vrancic \and Anastasia Ahani \and Riley Kong}
 
@@ -67,44 +71,35 @@
 \begin{column}{\colwidth}
 
   \begin{block}{1. Motivation \& Setup}
-
-    \heading{The Zhao paradox}
-    Multilingual LLMs reason worse in non-English languages.
-    Zhao et al.\ (NeurIPS 2025) showed, counter-intuitively, that
+    \heading{The Zhao effect}
+    \textit{Multilingual LLMs reason worse in non-English languages!}
+    
+    Zhao et al.\ (NeurIPS 2025) showed counter-intuitively that
     \emph{removing} language-specific representations \emph{improves}
-    reasoning.
-    Their method: compute per-language mean hidden states on translated math
-    problems, extract a ``language subspace'' via SVD, and project it out at
+    reasoning. They computed per-language mean hidden states on translated math
+    problems, extracted a language subspace via SVD, and projected it out at
     inference ($\hat{h} = h - \lambda\, M_s M_s^\top h$).
-    Across 10 models (Qwen, DeepSeek) and 10 languages they found consistent
-    gains --- up to +12.8pp, largest for low-resource languages.
 
-    \heading{Research question}
+    Ablation consistently improves reasoning, especially for low-resource languages.
+
+    \heading{SAE motivation}
+
     What are these features doing, and what are they encoding?
+
     Zhao's method operates on entire subspaces and cannot identify individual
-    features or explain the mechanism.
-    We decompose the effect to \emph{individual SAE features} to characterize
-    both the mechanism and the nature of the ablated representations.
+    features or explain the mechanism. We decompose the effect to individual 
+    \textit{SAE features} to characterize both the mechanism and the nature of 
+    the ablated representations.
 
     \heading{Setup}
-    \begin{itemize}
-      \item \textbf{Model:} Gemma 3 4B IT (untested by Zhao)
-      \item \textbf{SAEs:} Gemma Scope 2, 16k-width residual, layer 17
-      \item \textbf{Data:} MGSM --- 250 math problems $\times$ 5 languages
-            (en, zh, es, bn, sw)
-      \item \textbf{Feature selection:} intersection of top-$k$ by
-            monolinguality ($\nu$) with top-$k$ by language-probe importance
-            (``A$\cap$B'')
-      \item \textbf{Ablation:} directional QR-orthogonalized projection,
-            $k{=}20$ per language
-    \end{itemize}
+    Our experiments were conducted on Gemma 3 4B IT, using Gemma Scope 2 pre-trained SAEs on layer 17.
+    We selected features via intersection of top-$k$ by monolinguality ($\nu$) with top-$k$ by language-probe importance (``A$\cap$B'').
+    We ablated features via directional QR-orthogonalized projection, with $k{=}20$ per language.
 
   \end{block}
 
   \begin{block}{2. Replication: Ablation Improves Reasoning}
-
-    Ablating procedure-selected features at layer 17 reproduces and extends
-    the Zhao effect on Gemma 3 4B.
+    Ablating SAE features replicates and extends the Zhao effect on Gemma 3 4B.
 
     \begin{center}
     \renewcommand{\arraystretch}{1.15}
@@ -146,11 +141,11 @@
 
     We find direct evidence for \textbf{capacity composition}:
     language-correlated and reasoning-correlated features compete for
-    residual-stream bandwidth. Suppressing one class frees the other.
+    residual-stream bandwidth, so suppressing one class frees the other.
 
     After ablating the top-20 procedure-selected features at L17, we measure
     activation changes across 21 reasoning-correlated features
-    (50 problems $\times$ 5 langs, Wilcoxon signed-rank).
+    (50 problems $\times$ 5 languages with Wilcoxon signed-rank).
 
     \begin{figure}
       \centering
@@ -161,16 +156,13 @@
         All $p < 1.8 \times 10^{-15}$.}
     \end{figure}
 
-    \vspace*{-0.5em}
+    % \vspace*{-0.5em}
     \textbf{Dormant $\to$ active:} Feature 96 fires at 2345--7036 across
-    all five languages when procedure-selected features are removed ---
-    reasoning capacity suppressed by competition.
-    \textbf{Active $\to$ suppressed:} Feature 34 collapses from 2177 to 0
-    --- space reclaimed.
+    all five languages when procedure-selected features are removed. The reasoning capacity is suppressed by competition.
 
-    Ablation does not destroy capability; it \textbf{reallocates capacity}.
-    This reallocation occurs across all five languages, even those where
-    overall accuracy does not improve.
+    \textbf{Active $\to$ suppressed:} Feature 34 collapses from 2177 to 0. The reasoning capacity is reclaimed by the reasoning-specific features.
+
+    Therefore, ablation reallocates computational capacity, which occurs across all five languages, regardless of whether overall accuracy improves.
 
   \end{alertblock}
 
@@ -184,7 +176,6 @@
 \begin{column}{\colwidth}
 
   \begin{block}{4. What Are These Features?}
-
     The procedure selects features whose ablation reliably triggers capacity
     reallocation.
     But what do these features represent?
@@ -211,16 +202,14 @@
     Even within FLORES alone, the two selection methods (monolinguality and
     probe) agree on only 10--15\% of candidates (Jaccard 0.099--0.149).
 
-    These observations do not invalidate the ablation effect --- the
-    mechanism operates regardless.
-    But they suggest ``language feature'' as used here is a
-    procedure-defined label tied to input content; whether the selected
-    features encode language identity in a domain-general sense remains
-    an open question.
+    These observations do not invalidate the ablation effect, 
+    but they suggest the notion of a ``language feature'' is a
+    procedure-defined label tied to input content; this is independent of whether the selected
+    features encode language identity in a domain-general sense
 
   \end{block}
 
-  \begin{exampleblock}{5. Takeaways \& Future Work}
+  \begin{exampleblock}{5. Conclusions \& Future Work}
 
     \begin{enumerate}
       \item \textbf{Replication.}
