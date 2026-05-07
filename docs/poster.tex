@@ -10,7 +10,7 @@
 
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[size=a0,orientation=landscape,scale=1.0]{beamerposter}
+\usepackage[size=a0,orientation=landscape,scale=0.95]{beamerposter}
 \usetheme{gemini}
 \usecolortheme{redorange}
 \usepackage{graphicx}
@@ -28,6 +28,7 @@
 \setlength{\colwidth}{0.3\paperwidth}
 
 \newcommand{\separatorcolumn}{\begin{column}{\sepwidth}\end{column}}
+
 
 % ====================
 % Title
@@ -116,15 +117,27 @@
     Methods mostly disagree (Jaccard 0.03--0.33) --- the intersection selects
     features that \emph{both} methods agree are language-differential.
 
+    \heading{Identifying reasoning features}
+    MGSM contains the same 250 math problems translated into each language.
+    A feature is tagged as \textbf{reasoning} if it activates (above
+    threshold) in \emph{all 5 languages for the same problem} on $\geq$10\%
+    of problems --- i.e., it responds to the mathematical content, not the
+    language. This reduces 16{,}384 SAE features to just 19 at layer~17
+    (0.12\%).
+
   \end{block}
 
-  \begin{block}{3. The Procedure Works}
+  \begin{block}{3. Ablation Results}
 
+    \heading{A. Downstream accuracy}
     Ablate top-$k$ candidate features per language at layer 17 using
     directional (QR-orthogonalized) projection.
     $k{=}20$ selected on 50-prompt dev split.
 
     \begin{center}
+    {\small\textbf{MGSM accuracy after language-feature ablation (layer 17, $k{=}20$)}}
+    \vspace{0.3em}
+
     \renewcommand{\arraystretch}{1.15}
     \begin{tabular}{l c c c}
     \toprule
@@ -159,14 +172,9 @@
 % =====================================================================
 \begin{column}{\colwidth}
 
-  \begin{alertblock}{4. But What Does It Mean to Be a Language Feature?}
+  \begin{block}{}
 
-    Zhao identifies the subspace on translated math problems; we identify
-    our SAE features on MGSM. Both identifications happen on math content.
-    Whether the resulting components generalize as language features on
-    neutral text has not been previously tested.
-
-    \heading{A. Causal profiling of individual features}
+    \heading{B. Which features affect performance?}
     Not all statistically-identified candidates behave alike.
     We ablate each of the top-5 A$\cap$B features per language individually
     and measure (i)~perplexity delta on target-language text and
@@ -179,92 +187,70 @@
     \begin{center}
     \renewcommand{\arraystretch}{1.1}
     \small
-    \begin{tabular}{l r r r r}
+    \begin{tabular}{l r r r}
     \toprule
-    \textbf{Lang} & \textbf{LANG} & \textbf{SHARED} & \textbf{REAS.} & \textbf{JUNK} \\
+    \textbf{Lang} & \textbf{LANG} & \textbf{SHARED} & \textbf{Other} \\
     \midrule
-    en & \textbf{5} & 0 & 0 & 0 \\
-    es & \textbf{3} & 0 & 1 & 1 \\
-    zh & 3 & 2 & 0 & 0 \\
-    sw & 2 & \textbf{3} & 0 & 0 \\
-    bn & 0 & \textbf{5} & 0 & 0 \\
+    en & \textbf{5} & 0 & 0 \\
+    es & \textbf{3} & 0 & 2 \\
+    zh & 3 & 2 & 0 \\
+    sw & 2 & \textbf{3} & 0 \\
+    bn & 0 & \textbf{5} & 0 \\
     \bottomrule
     \end{tabular}
     \end{center}
 
     English's top-5 are all cleanly LANGUAGE; Bengali's are all SHARED.
-    This directly predicts the asymmetry in Panel~3: ablating clean language
+    This directly predicts the asymmetry in 3A: ablating clean language
     features helps; ablating shared features hurts.
 
-    \heading{B. Humanly-interpretable features --- through Neuronpedia}
-    We look up LANGUAGE-tagged features on Neuronpedia to check whether
-    they correspond to recognizable language markers.
-    For \textbf{English and Spanish}, top features map to recognizable
-    language markers --- and ablation \emph{outperforms} Zhao
-    (en~+8.0pp, es~+3.6pp over SVD).
-    For \textbf{Bengali and Swahili}, none of the top features map to
-    recognizable language markers --- and ablation \emph{underperforms}
-    Zhao (bn~$-$8.4pp, sw~$-$3.6pp vs baseline).
-
-    % TODO: replace with actual Neuronpedia screenshots
-    % Suggested features to screenshot:
-    %   - en f166 (LANGUAGE, +0.200 acc) — likely interpretable as "English"
-    %   - sw f728 (LANGUAGE, +0.080 acc) — likely NOT interpretable as "Swahili"
-    \begin{figure}
-      \centering
-      % \includegraphics[width=0.48\linewidth]{figures/neuronpedia_en166.png}
-      % \hfill
-      % \includegraphics[width=0.48\linewidth]{figures/neuronpedia_sw728.png}
-      \vspace{4cm} % placeholder space for screenshots
-      \caption{Left: en feature 166 (LANGUAGE, $\Delta$acc$=$+0.200) ---
-        clearly English-related on Neuronpedia.
-        Right: sw feature 728 (LANGUAGE, $\Delta$acc$=$+0.080) ---
-        no recognizable Swahili markers.}
-    \end{figure}
-
-    The languages where features are least interpretable as ``language''
-    are exactly the languages where feature-level ablation fails.
-
-    \heading{C. FLORES generalization failure}
-    We test whether MGSM-derived features behave as language features on
-    FLORES-200 (1012 parallel translations, no math).
+    \heading{C. What happens to the reasoning features?}
+    We ablate the same language features at L17 and measure how the 21
+    reasoning features respond (forward-only, 50 problems $\times$ 5 langs,
+    Wilcoxon signed-rank).
+    Neuronpedia look-ups reveal three functional camps:
 
     \begin{center}
     \renewcommand{\arraystretch}{1.1}
     \small
-    \begin{tabular}{l c c}
+    \begin{tabular}{l l l}
     \toprule
-    \textbf{Metric} & \textbf{Value} & \textbf{Pass?} \\
+    \textbf{Camp} & \textbf{Neuronpedia identity} & \textbf{Effect} \\
     \midrule
-    Probe transfer & 0.714 & \textcolor{loss}{\textbf{FAIL}} {\scriptsize (need $>$0.80)} \\
-    LANG/SHARED sep. & $p{=}0.51$ & \textcolor{loss}{\textbf{FAIL}} {\scriptsize (need $<$0.01)} \\
-    $\nu$ corr.\ en & 0.76 & \textcolor{gain}{\checkmark} \\
-    $\nu$ corr.\ zh & 0.73 & \textcolor{gain}{\checkmark} \\
-    $\nu$ corr.\ es & 0.23 & \textcolor{loss}{$\times$} \\
-    $\nu$ corr.\ bn & $-$0.21 & \textcolor{loss}{$\times$} \\
-    $\nu$ corr.\ sw & 0.88 & \textcolor{gain}{\checkmark} \\
+    \textbf{Reasoning} & solving for $x$, step-by-step, & \textbf{Stable} \\
+    {\scriptsize (4094, 5993, 1105)} & causal reasoning & $|\Delta|{<}200$ \\
+    \midrule
+    \textbf{Answering} & explanatory, QA patterns, & \textbf{Boosted} \\
+    {\scriptsize (96, 406, 377, 712, 9240)} & response initiation & $\Delta$ up to +7036 \\
+    \midrule
+    \textbf{Answering} & conversational acknowledgment, & \textbf{Suppressed} \\
+    {\scriptsize (107, 279, \ldots)} & preamble (``Okay,\ldots'') & to $\approx$0 \\
     \bottomrule
     \end{tabular}
     \end{center}
 
-    \heading{D. FLORES vs MGSM feature overlap}
-    Running the \emph{same} procedure on FLORES vs MGSM yields largely
-    \emph{different} feature sets (layer~17).
-
     \begin{figure}
       \centering
-      \includegraphics[width=0.72\linewidth]{figures/jaccard_overlap.pdf}
+      \includegraphics[width=0.85\linewidth]{figures/neuronpedia_feat1105.png}
       \vspace*{-0.5em}
-      \caption{Same procedure, different domain $\to$ different features.
-        English (J$=$0.15) and Spanish (J$=$0.19) share almost none.}
+      \caption{Feature 1105 (L17) on Neuronpedia: fires on
+        causal/sequential reasoning (``let's break this down,''
+        ``step-by-step''). This genuine reasoning feature is
+        \textbf{unaffected} by language-feature ablation ($\Delta{<}200$).}
     \end{figure}
 
-    \textbf{The distinction:} ``language feature'' as used in our pipeline is a
-    \textbf{procedural tag} --- derived from cross-language statistical
-    comparison on a specific dataset --- not an \textbf{intrinsic property}
-    of the feature.
+    \textbf{Ablation reorganizes answering, not reasoning.}
+    The genuine reasoning features (4094, 5993, 1105) are
+    \textbf{already active and independent of language}.
+    What changes are the \emph{answering} features: explanatory
+    features get boosted while conversational preamble gets suppressed
+    --- the model shifts toward more direct answer generation.
+    This explains the en/es asymmetry: clean LANGUAGE features ablate
+    without side effects, reshuffling answer generation; SHARED features
+    (bn/sw) disrupt more than just language, so the improvement doesn't
+    come through.
 
-  \end{alertblock}
+  \end{block}
 
 \end{column}
 
@@ -275,61 +261,87 @@
 % =====================================================================
 \begin{column}{\colwidth}
 
-  \begin{block}{5. Mechanism: Capacity Competition}
+  \begin{block}{4. But What Does It Mean to Be a Language Feature?}
 
-    Regardless of \emph{what} the ablated features encode, the mechanism is
-    capacity competition: language and reasoning features compete for
-    residual-stream bandwidth.
+    \heading{A. Humanly-interpretable features --- through Neuronpedia}
+    We look up every chosen feature on Neuronpedia.
+    Even for \textbf{English and Spanish} --- our best-performing
+    languages --- only 2--3 of the top features are humanly interpretable
+    as language-specific.
+    For \textbf{Bengali and Swahili}, \emph{none} map to recognizable
+    language markers.
 
-    Ablate top-20 features at L17, measure activation change of 21 candidate
-    reasoning features (50 problems $\times$ 5 langs, Wilcoxon signed-rank).
+    % TODO: replace with actual Neuronpedia screenshots
+    %   - en f166 (LANGUAGE, +0.200 acc) — likely interpretable as "English"
+    %   - sw f728 (LANGUAGE, +0.080 acc) — likely NOT interpretable as "Swahili"
+    % \begin{figure}
+    %   \centering
+    %   \includegraphics[width=0.48\linewidth]{figures/neuronpedia_en166.png}
+    %   \hfill
+    %   \includegraphics[width=0.48\linewidth]{figures/neuronpedia_sw728.png}
+    %   \caption{Left: en f166 --- clearly English-related.
+    %     Right: sw f728 --- no recognizable Swahili markers.}
+    % \end{figure}
+
+    We hand-selected only Neuronpedia-confirmed features and ablated them
+    (5--6 per language, $n{=}50$).
+    \textbf{Result: no detectable change in reasoning performance}
+    ($\pm$0--4pp, indistinguishable from random ablation).
+    The causally effective features are the statistically-identified ones
+    that lack clear interpretability.
+
+    \heading{B. Are these language features global?}
+    Both Zhao's subspace and our SAE features are identified on math
+    content. We run the \emph{same} identification procedure on
+    FLORES-200 (1012 parallel translations, no math) and compare.
 
     \begin{figure}
       \centering
-      \includegraphics[width=0.78\linewidth]{figures/feat96_dormant.pdf}
+      \includegraphics[width=0.60\linewidth]{figures/jaccard_overlap.pdf}
       \vspace*{-0.5em}
-      \caption{Feature 96 is completely dormant at baseline but activates
-        strongly (2345--7036) across all languages after ablation.
-        All $p < 1.8 \times 10^{-15}$.}
+      \caption{Same procedure, different domain $\to$ different features.
+        English (J$=$0.15) and Spanish (J$=$0.19) share almost none.}
     \end{figure}
 
-    \textbf{Dormant $\to$ active:} Feature 96 is zero normally but explodes
-    to 2345--7036 when features are removed --- released reasoning capacity.
-    \textbf{Active $\to$ suppressed:} Feature 34 collapses from 2177 to 0 ---
-    representational space reclaimed.
-    This explains why ablation works \emph{regardless of what the ablated
-    features ``are''}: it is about representational pressure, not about
-    removing ``language.''
+    The features identified as ``language features'' on MGSM are largely
+    \textbf{different} from those identified on FLORES.
+    A language probe trained on MGSM features transfers poorly to FLORES
+    (accuracy 0.714, need ${>}$0.80), and the LANGUAGE/SHARED distinction
+    from Section~3B is meaningless out of domain ($p{=}0.51$).
+    If these were genuinely encoding \emph{language identity}, they would
+    generalize across domains. They don't --- they encode
+    \textbf{task-specific structure that co-varies with language}
+    on a particular dataset.
 
   \end{block}
 
-  \begin{exampleblock}{6. Takeaways}
+  \begin{exampleblock}{5. Conclusion}
 
     \begin{enumerate}
+      \item \textbf{``Language feature'' is a method-dependent category.}
+            Every procedure for identifying language features depends on
+            what definition you start from, and no definition is privileged.
+
       \item \textbf{The procedure works.}
-            Statistical ``language feature'' identification + ablation
-            reproduces and extends Zhao's gains (en~+13.2pp, es~+6.8pp).
+            Statistical identification + ablation reproduces and extends
+            Zhao's gains (en~+13.2pp, es~+6.8pp).
 
       \item \textbf{But these are not reliably language features.}
             They don't generalize out of domain (probe transfer~0.714,
             separation $p{=}0.51$), don't match Neuronpedia auto-interp,
             and change when the domain changes (en Jaccard$=$0.15).
 
-      \item \textbf{The label is procedural.}
-            ``Language feature'' captures task-specific co-occurrence with
-            language identity, not an intrinsic property.
-
-      \item \textbf{Capacity competition is the mechanism.}
-            Ablation releases dormant reasoning features ($\Delta$ up to
-            +7036, $p < 10^{-15}$) no matter what the ablated features ``are.''
+      \item \textbf{``Reasoning feature'' is also a procedural tag.}
+            The most dramatic released feature (96, $\Delta$ up to +7036)
+            fires on word-problem content tokens, not mathematical
+            operations. Both labels are method-dependent.
     \end{enumerate}
 
-    \heading{Limitations}
-    \begin{itemize}
-      \item Single model (Gemma 3 4B IT), single task (MGSM), 5 languages
-      \item Global $k{=}20$ suboptimal; per-language $k$ would improve zh/sw/bn
-      \item Dev/test overlap in profiling step
-    \end{itemize}
+    \heading{Limitations \& future work}
+    {\small Single model (Gemma 3 4B IT), single task (MGSM), 5 languages;
+    global $k{=}20$ suboptimal; dev/test overlap in profiling step.
+    Next step: compare across feature identification operationalizations
+    (causal LM ablation, top-activating examples, activation-steering).}
 
     \heading{References}
     {\small
