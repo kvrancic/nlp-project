@@ -72,13 +72,14 @@
     \textit{Multilingual LLMs reason worse in non-English languages.}
     Counter-intuitively, removing language-specific information from a
     model's hidden state can \emph{improve} multilingual reasoning. We use
-    sparse autoencoders (SAEs), which decompose hidden states into
-    interpretable individual features, to ask what those removed
+    sparse autoencoders (SAEs) [Bricken+ 2023], which decompose hidden
+    states into interpretable individual features, to ask what those removed
     representations actually are.
 
     \heading{Zhao et al.\ (NeurIPS 2025)}
-    Zhao et al.\ showed that multilingual reasoning is partly degraded by
-    \emph{language-specific representations interfering with reasoning}.
+    Zhao et al.\ [Zhao+ 2025] showed that multilingual reasoning is partly
+    degraded by \emph{language-specific representations interfering with
+    reasoning}.
     Their method: compute per-language mean hidden states across translated
     math problems, extract a ``language subspace'' via SVD, and project it
     out at inference ($\hat{h} = h - \lambda\, M_s M_s^\top h$).
@@ -105,13 +106,14 @@
 
   \begin{block}{2. SAE Language Feature Extraction}
 
-    We pass 250 MGSM math problems $\times$ 5 languages through Gemma 3 4B IT,
-    extract last-token residual-stream activations, and encode them through
-    Gemma Scope 2 SAEs (16k-width, layers \{9, 17, 22, 29\}).
+    We pass 250 MGSM math problems [Shi+ 2022] $\times$ 5 languages through
+    Gemma 3 4B IT, extract last-token residual-stream activations, and encode
+    them through Gemma Scope 2 SAEs [Lieberum+ 2024] (16k-width,
+    layers \{9, 17, 22, 29\}).
 
     \heading{Two identification methods}
     \begin{itemize}
-      \item \textbf{Method A. Monolinguality ($\nu$):}
+      \item \textbf{Method A. Monolinguality ($\nu$)} [Deng+ 2025]:
             $\nu_s^L = \mu_s^L - \gamma_s^L$ (mean activation on target language
             minus mean across other languages). Top-50 per language.
       \item \textbf{Method B. Supervised probe:}
@@ -137,27 +139,33 @@
 
     \heading{A. Downstream accuracy}
     Ablate top-$k$ candidate features per language at layer 17 using
-    directional (QR-orthogonalized) projection.
-    $k{=}20$ selected on 50-prompt dev split.
+    directional (QR-orthogonalized) projection. Prior work shows
+    single-feature SAE steering already controls model output language
+    [Chou+ 2025]; we extend this to multi-feature ablation and ask whether
+    \emph{reasoning} also responds. $k{=}20$ selected on 50-prompt dev
+    split.
 
     \begin{center}
     {\small\textbf{MGSM accuracy after language-feature ablation (layer 17, $k{=}20$)}}
     \vspace{0.3em}
 
     \renewcommand{\arraystretch}{1.15}
-    \begin{tabular}{l c c c}
+    \begin{tabular}{l c c c r r}
     \toprule
-    \textbf{Lang} & \textbf{Baseline} & \textbf{Zhao SVD} & \textbf{SAE ablation} \\
+    \textbf{Lang} & \textbf{Baseline} & \textbf{Zhao SVD}
+      & \textbf{SAE} & \textbf{$\Delta$ vs base} & \textbf{$\Delta$ vs Zhao} \\
     \midrule
-    en & 0.580 & 0.632 & \textbf{0.712} \\
-    zh & 0.624 & 0.624 & 0.596 \\
-    es & 0.568 & 0.600 & \textbf{0.636} \\
-    bn & 0.564 & 0.564 & 0.480 \\
-    sw & 0.320 & 0.332 & 0.296 \\
+    en   & 0.580 & 0.632 & \textbf{0.712} & \textbf{+13.2} & \textbf{+8.0} \\
+    zh   & 0.624 & 0.624 & 0.596          & $-$2.8         & $-$2.8 \\
+    es   & 0.568 & 0.600 & \textbf{0.636} & \textbf{+6.8}  & \textbf{+3.6} \\
+    bn   & 0.564 & 0.564 & 0.480          & $-$8.4         & $-$8.4 \\
+    sw   & 0.320 & 0.332 & 0.296          & $-$2.4         & $-$3.6 \\
     \midrule
-    \textbf{Mean} & 0.531 & 0.550 & 0.544 \\
+    \textbf{Mean} & 0.531 & 0.550 & 0.544 & +1.3 & $-$0.6 \\
     \bottomrule
     \end{tabular}
+    \\[0.3em]
+    {\footnotesize $\Delta$ values in absolute percentage points.}
     \end{center}
 
     Mean accuracy under SAE ablation (0.544) is comparable to Zhao's
@@ -222,8 +230,8 @@
     \heading{C. What happens to the reasoning features?}
     We ablate the same language features at L17 and measure how the 21
     reasoning features respond (forward-only, 50 problems $\times$ 5 langs,
-    Wilcoxon signed-rank).
-    Neuronpedia look-ups reveal three functional camps:
+    Wilcoxon signed-rank), in the spirit of feature-circuit attribution
+    [Marks+ 2025]. Neuronpedia look-ups reveal three functional camps:
 
     \begin{center}
     \renewcommand{\arraystretch}{1.1}
@@ -281,10 +289,11 @@
     \heading{A. Humanly-interpretable features (via Neuronpedia)}
     We look up every chosen feature on Neuronpedia, an automated
     interpretability database that labels SAE features by their top-firing
-    examples. Even for \textbf{English and Spanish}, our best-performing
-    languages, only 2--3 of the top features are humanly interpretable as
-    language-specific. For \textbf{Bengali and Swahili}, \emph{none} map to
-    recognizable language markers.
+    examples (the standard auto-interp protocol from [Bricken+ 2023]). Even
+    for \textbf{English and Spanish}, our best-performing languages, only
+    2--3 of the top features are humanly interpretable as language-specific.
+    For \textbf{Bengali and Swahili}, \emph{none} map to recognizable
+    language markers.
 
     % TODO: replace with actual Neuronpedia screenshots
     %   - en f166 (LANGUAGE, +0.200 acc) — likely interpretable as "English"
@@ -323,9 +332,11 @@
     A language probe trained on MGSM features transfers poorly to FLORES
     (accuracy 0.714, need ${>}$0.80), and the LANGUAGE/SHARED distinction
     from Section~3B is meaningless out of domain ($p{=}0.51$).
-    If these were genuinely encoding \emph{language identity}, they would
-    generalize across domains. They don't. They encode \textbf{task-specific
-    structure that co-varies with language} on a particular dataset.
+    If these were genuinely encoding \emph{language identity} in the
+    domain-general sense documented for multilingual LLMs [Wendler+ 2024],
+    they would generalize across domains. They don't. They encode
+    \textbf{task-specific structure that co-varies with language} on a
+    particular dataset.
 
   \end{block}
 
@@ -370,14 +381,21 @@
 
     \heading{References}
     {\scriptsize
-    Zhao et al., \textit{NeurIPS} 2025;
-    Deng et al., \textit{ACL} 2025;
-    Lieberum et al.\ (Gemma Scope), 2024;
-    Bricken et al., \textit{Anthropic Transformer Circuits}, 2023;
-    Marks et al.\ (Sparse Feature Circuits), \textit{ICLR} 2025;
-    Chou et al., \textit{arXiv:2507.13410};
-    Wendler et al., \textit{ACL} 2024;
-    Shi et al.\ (MGSM), \textit{NeurIPS} 2022.
+    \textbf{[Zhao+ 2025]} Zhao et al., ``When Less Language is More,''
+    \textit{NeurIPS}.\quad
+    \textbf{[Bricken+ 2023]} Bricken et al., ``Towards Monosemanticity,''
+    \textit{Anthropic Transformer Circuits}.\quad
+    \textbf{[Shi+ 2022]} Shi et al., ``Language Models are Multilingual
+    CoT Reasoners'' (MGSM), \textit{NeurIPS}.\quad
+    \textbf{[Lieberum+ 2024]} Lieberum et al., ``Gemma Scope,'' arXiv.\quad
+    \textbf{[Deng+ 2025]} Deng et al., ``Unveiling Language-Specific
+    Features in LLMs via SAEs,'' \textit{ACL}.\quad
+    \textbf{[Marks+ 2025]} Marks et al., ``Sparse Feature Circuits,''
+    \textit{ICLR}.\quad
+    \textbf{[Wendler+ 2024]} Wendler et al., ``Do Llamas Work in English?''
+    \textit{ACL}.\quad
+    \textbf{[Chou+ 2025]} Chou et al., ``Causal Language Control via
+    Sparse Feature Steering,'' arXiv:2507.13410.
     }
 
   \end{exampleblock}
