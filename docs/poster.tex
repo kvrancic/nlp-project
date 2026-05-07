@@ -39,7 +39,7 @@
 
 \author{Karlo Vrancic \and Anastasia Ahani \and Riley Kong}
 
-\institute{MIT 6.8610 --- Quantitative Methods for Natural Language Processing --- Spring 2026}
+\institute{MIT 6.8610: Quantitative Methods for Natural Language Processing, Spring 2026}
 
 % ====================
 % Footer
@@ -48,7 +48,7 @@
 \footercontent{
   \href{https://github.com/kvrancic/nlp-project}{github.com/kvrancic/nlp-project}
   \hfill
-  MIT 6.8610 --- Spring 2026
+  MIT 6.8610, Spring 2026
   \hfill
   \href{mailto:kvrancic@mit.edu}{kvrancic@mit.edu}}
 
@@ -69,29 +69,35 @@
 
   \begin{block}{1. The Question}
 
+    \textit{Multilingual LLMs reason worse in non-English languages.}
+    Counter-intuitively, removing language-specific information from a
+    model's hidden state can \emph{improve} multilingual reasoning. We use
+    sparse autoencoders (SAEs), which decompose hidden states into
+    interpretable individual features, to ask what those removed
+    representations actually are.
+
     \heading{Zhao et al.\ (NeurIPS 2025)}
-    Multilingual LLMs reason worse in non-English languages.
-    Zhao et al.\ showed this is partly caused by \emph{language-specific
-    representations interfering with reasoning}.
+    Zhao et al.\ showed that multilingual reasoning is partly degraded by
+    \emph{language-specific representations interfering with reasoning}.
     Their method: compute per-language mean hidden states across translated
     math problems, extract a ``language subspace'' via SVD, and project it
-    out at inference time ($\hat{h} = h - \lambda\, M_s M_s^\top h$).
+    out at inference ($\hat{h} = h - \lambda\, M_s M_s^\top h$).
     Across 10 models and 10 languages: consistent gains up to +12.8pp,
     especially for low-resource languages.
 
     \heading{Our extension}
     Zhao's method operates on entire subspaces and cannot identify individual
-    features or explain the mechanism.
-    We decompose the effect to individual SAE features to characterize both
-    the \textbf{mechanism} and the \textbf{nature} of the ablated
+    features or explain the mechanism. We use SAEs to decompose the effect
+    into individual interpretable features and characterize both the
+    \textbf{mechanism} and the \textbf{nature} of the ablated
     representations.
 
     \heading{The question}
     \textbf{What are these features doing, and what are they encoding?}
 
-    Using SAEs on Gemma 3 4B IT, we identify candidate
-    features via monolinguality ($\nu$) $\cap$ supervised probe.
-    Ablation improves reasoning for en~+13.2pp, es~+6.8pp --- but three
+    Using SAEs on Gemma 3 4B IT, we identify candidate features via
+    monolinguality ($\nu$) intersected with a supervised language probe.
+    Ablation improves reasoning for en~(+13.2pp) and es~(+6.8pp); but three
     lines of evidence suggest the label ``language feature'' is a
     \textbf{procedural tag}, not an \textbf{intrinsic property}.
 
@@ -105,23 +111,23 @@
 
     \heading{Two identification methods}
     \begin{itemize}
-      \item \textbf{Method A --- Monolinguality ($\nu$):}
+      \item \textbf{Method A. Monolinguality ($\nu$):}
             $\nu_s^L = \mu_s^L - \gamma_s^L$ (mean activation on target language
             minus mean across other languages). Top-50 per language.
-      \item \textbf{Method B --- Supervised probe:}
+      \item \textbf{Method B. Supervised probe:}
             Logistic regression on SAE feature vectors (5-way language
             classification, accuracy ceiling $\sim$0.88). Top-50 per language
             by coefficient magnitude.
     \end{itemize}
     Candidates $=$ A $\cap$ B intersection.
-    Methods mostly disagree (Jaccard 0.03--0.33) --- the intersection selects
+    Methods mostly disagree (Jaccard 0.03--0.33); the intersection selects
     features that \emph{both} methods agree are language-differential.
 
     \heading{Identifying reasoning features}
     MGSM contains the same 250 math problems translated into each language.
     A feature is tagged as \textbf{reasoning} if it activates (above
     threshold) in \emph{all 5 languages for the same problem} on $\geq$10\%
-    of problems --- i.e., it responds to the mathematical content, not the
+    of problems, i.e., it responds to the mathematical content, not the
     language. This reduces 16{,}384 SAE features to just 19 at layer~17
     (0.12\%).
 
@@ -160,6 +166,11 @@
     SAE ablation outperforms Zhao for English (+8.0pp) and Spanish (+3.6pp),
     suggesting feature-level targeting can be more precise than subspace
     projection for some languages.
+
+    \textbf{But the asymmetry is striking}: en~+13.2pp and es~+6.8pp
+    \emph{gain}, while bn~$-$8.4pp and sw~$-$2.4pp \emph{lose}. Why?
+    Section~3B opens up the top-5 features per language and shows that
+    different languages have qualitatively different feature taxonomies.
 
   \end{block}
 
@@ -200,9 +211,13 @@
     \end{tabular}
     \end{center}
 
-    English's top-5 are all cleanly LANGUAGE; Bengali's are all SHARED.
-    This directly predicts the asymmetry in 3A: ablating clean language
-    features helps; ablating shared features hurts.
+    \textbf{English's top-5 are all cleanly LANGUAGE; Bengali's are all
+    SHARED.} This taxonomy directly explains the asymmetry from 3A:
+    languages whose top features cleanly separate from reasoning gain
+    accuracy when ablated (en, es); languages whose top features entangle
+    with reasoning lose accuracy when ablated (bn, sw). The 3A result and
+    the 3B taxonomy are not two findings: \textbf{they are the same finding,
+    measured differently}, which Section~3C now makes mechanistic.
 
     \heading{C. What happens to the reasoning features?}
     We ablate the same language features at L17 and measure how the 21
@@ -242,9 +257,9 @@
     \textbf{Ablation reorganizes answering, not reasoning.}
     The genuine reasoning features (4094, 5993, 1105) are
     \textbf{already active and independent of language}.
-    What changes are the \emph{answering} features: explanatory
-    features get boosted while conversational preamble gets suppressed
-    --- the model shifts toward more direct answer generation.
+    What changes are the \emph{answering} features: explanatory features get
+    boosted while conversational preamble gets suppressed, so the model
+    shifts toward more direct answer generation.
     This explains the en/es asymmetry: clean LANGUAGE features ablate
     without side effects, reshuffling answer generation; SHARED features
     (bn/sw) disrupt more than just language, so the improvement doesn't
@@ -263,13 +278,13 @@
 
   \begin{block}{4. But What Does It Mean to Be a Language Feature?}
 
-    \heading{A. Humanly-interpretable features --- through Neuronpedia}
-    We look up every chosen feature on Neuronpedia.
-    Even for \textbf{English and Spanish} --- our best-performing
-    languages --- only 2--3 of the top features are humanly interpretable
-    as language-specific.
-    For \textbf{Bengali and Swahili}, \emph{none} map to recognizable
-    language markers.
+    \heading{A. Humanly-interpretable features (via Neuronpedia)}
+    We look up every chosen feature on Neuronpedia, an automated
+    interpretability database that labels SAE features by their top-firing
+    examples. Even for \textbf{English and Spanish}, our best-performing
+    languages, only 2--3 of the top features are humanly interpretable as
+    language-specific. For \textbf{Bengali and Swahili}, \emph{none} map to
+    recognizable language markers.
 
     % TODO: replace with actual Neuronpedia screenshots
     %   - en f166 (LANGUAGE, +0.200 acc) — likely interpretable as "English"
@@ -309,9 +324,8 @@
     (accuracy 0.714, need ${>}$0.80), and the LANGUAGE/SHARED distinction
     from Section~3B is meaningless out of domain ($p{=}0.51$).
     If these were genuinely encoding \emph{language identity}, they would
-    generalize across domains. They don't --- they encode
-    \textbf{task-specific structure that co-varies with language}
-    on a particular dataset.
+    generalize across domains. They don't. They encode \textbf{task-specific
+    structure that co-varies with language} on a particular dataset.
 
   \end{block}
 
@@ -337,18 +351,33 @@
             operations. Both labels are method-dependent.
     \end{enumerate}
 
+    \heading{Discussion: when does it fire vs.\ what does it do}
+    {\small Any correlational measure of feature semantics, including
+    top-activating examples, monolinguality scores, probe coefficients, and
+    Neuronpedia auto-interp, answers \emph{when} a feature fires, not
+    \emph{what} it does. The latter requires intervention. ``Language
+    feature'' depends not just on which procedure picks the feature, but on
+    which evaluative measure judges it. Our findings suggest treating these
+    procedural labels as hypotheses to test causally, rather than as ground
+    truth about representation content.}
+
     \heading{Limitations \& future work}
     {\small Single model (Gemma 3 4B IT), single task (MGSM), 5 languages;
     global $k{=}20$ suboptimal; dev/test overlap in profiling step.
-    Next step: compare across feature identification operationalizations
-    (causal LM ablation, top-activating examples, activation-steering).}
+    Next: compare across operationalizations (causal LM ablation,
+    top-activating examples, activation steering); confirmed-only ablation
+    using only causally-validated features per language.}
 
     \heading{References}
-    {\small
-    Zhao et al.\ (NeurIPS 2025);
-    Deng et al.\ (2025);
-    Bricken et al.\ (2023);
-    Lieberum et al.\ (2024)
+    {\scriptsize
+    Zhao et al., \textit{NeurIPS} 2025;
+    Deng et al., \textit{ACL} 2025;
+    Lieberum et al.\ (Gemma Scope), 2024;
+    Bricken et al., \textit{Anthropic Transformer Circuits}, 2023;
+    Marks et al.\ (Sparse Feature Circuits), \textit{ICLR} 2025;
+    Chou et al., \textit{arXiv:2507.13410};
+    Wendler et al., \textit{ACL} 2024;
+    Shi et al.\ (MGSM), \textit{NeurIPS} 2022.
     }
 
   \end{exampleblock}
