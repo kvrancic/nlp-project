@@ -78,10 +78,10 @@
     \heading{Zhao et al.\ (NeurIPS 2025)}
     Zhao et al.~[2] showed that multilingual reasoning is partly degraded
     by \emph{language-specific representations interfering with reasoning}.
-    Their method projects out a per-language mean subspace (rank-3 SVD) at
-    inference: $\hat{h} = h - \lambda M_s M_s^\top h$. Across 10 models and
-    10 languages: consistent gains up to +12.8pp, especially for
-    low-resource languages.
+    Their method projects out a per-language mean subspace via top-$r$ SVD
+    at inference: $\hat{h} = h - \lambda M_s M_s^\top h$ (we use $r{=}3$ in
+    our reproduction). Across 10 models and 11 languages: consistent gains
+    up to +14.0pp, especially for low-resource languages.
 
     \heading{Our extension}
     Zhao's method operates on entire subspaces and cannot identify individual
@@ -393,9 +393,10 @@
     \textit{Anthropic Transformer Circuits}.\
     [2] Zhao et al.\ (2025). When Less Language is More.
     \textit{NeurIPS}.\
-    [3] Shi et al.\ (2022). Language Models are Multilingual CoT Reasoners
-    (MGSM). \textit{NeurIPS}.\
-    [4] Lieberum et al.\ (2024). Gemma Scope. \textit{arXiv:2408.05147}.\
+    [3] Shi et al.\ (2023). Language Models are Multilingual CoT Reasoners
+    (MGSM). \textit{ICLR}.\
+    [4] McDougall et al.\ (2025). Gemma Scope 2: SAEs for Gemma 3.
+    \textit{DeepMind technical report}.\
     [5] Deng et al.\ (2025). Unveiling Language-Specific Features in LLMs
     via SAEs. \textit{ACL}.\
     [6] Chou et al.\ (2025). Causal Language Control via Sparse Feature

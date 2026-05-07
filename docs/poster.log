@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.11.29)  7 MAY 2026 04:51
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025) (preloaded format=pdflatex 2025.11.29)  7 MAY 2026 05:04
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -854,54 +854,54 @@ File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 File: mt-msb.cfg 2005/06/01 v1.0 microtype config. file: AMS symbols (b) (RS)
 )
 LaTeX Font Info:    Font shape `T1/phv/m/it' in size <22.39> not available
-(Font)              Font shape `T1/phv/m/sl' tried instead on input line 413.
-LaTeX Font Info:    Calculating math sizes for size <22.39> on input line 413.
+(Font)              Font shape `T1/phv/m/sl' tried instead on input line 418.
+LaTeX Font Info:    Calculating math sizes for size <22.39> on input line 418.
 
 
 LaTeX Font Warning: Font shape `OMX/cmex/m/n' in size <22.39> not available
-(Font)              size <20.74> substituted on input line 413.
+(Font)              size <20.74> substituted on input line 418.
 
 
 LaTeX Font Warning: Font shape `OMX/cmex/m/n' in size <15.67293> not available
-(Font)              size <14.4> substituted on input line 413.
+(Font)              size <14.4> substituted on input line 418.
 
-LaTeX Font Info:    Calculating math sizes for size <18.67> on input line 413.
+LaTeX Font Info:    Calculating math sizes for size <18.67> on input line 418.
 
 LaTeX Font Warning: Font shape `OMX/cmex/m/n' in size <18.67> not available
-(Font)              size <17.28> substituted on input line 413.
+(Font)              size <17.28> substituted on input line 418.
 
 
 LaTeX Font Warning: Font shape `OMX/cmex/m/n' in size <13.06894> not available
-(Font)              size <12> substituted on input line 413.
+(Font)              size <12> substituted on input line 418.
 
-LaTeX Font Info:    Calculating math sizes for size <15.55> on input line 413.
+LaTeX Font Info:    Calculating math sizes for size <15.55> on input line 418.
 
 LaTeX Font Warning: Font shape `OMX/cmex/m/n' in size <15.55> not available
-(Font)              size <14.4> substituted on input line 413.
+(Font)              size <14.4> substituted on input line 418.
 
 LaTeX Font Info:    External font `cmex7' loaded for size
-(Font)              <7.775> on input line 413.
+(Font)              <7.775> on input line 418.
 <figures/neuronpedia_feat1105.png, id=17, 1006.76125pt x 780.9175pt>
 File: figures/neuronpedia_feat1105.png Graphic file (type png)
 <use figures/neuronpedia_feat1105.png>
-Package pdftex.def Info: figures/neuronpedia_feat1105.png  used on input line 413.
-(pdftex.def)             Requested size: 629.24548pt x 488.08415pt.
+Package pdftex.def Info: figures/neuronpedia_feat1105.png  used on input line 418.
+(pdftex.def)             Requested size: 832.24188pt x 645.55179pt.
 <figures/jaccard_overlap.pdf, id=19, 498.53188pt x 316.86946pt>
 File: figures/jaccard_overlap.pdf Graphic file (type pdf)
 <use figures/jaccard_overlap.pdf>
-Package pdftex.def Info: figures/jaccard_overlap.pdf  used on input line 413.
+Package pdftex.def Info: figures/jaccard_overlap.pdf  used on input line 418.
 (pdftex.def)             Requested size: 507.46004pt x 322.5595pt.
 LaTeX Font Info:    Font shape `T1/phv/m/it' in size <18.67> not available
-(Font)              Font shape `T1/phv/m/sl' tried instead on input line 413.
+(Font)              Font shape `T1/phv/m/sl' tried instead on input line 418.
 LaTeX Font Info:    Font shape `T1/phv/m/it' in size <12.96> not available
-(Font)              Font shape `T1/phv/m/sl' tried instead on input line 413.
+(Font)              Font shape `T1/phv/m/sl' tried instead on input line 418.
 
-Overfull \vbox (169.80533pt too high) detected at line 413
+Overfull \vbox (139.2142pt too high) detected at line 418
  []
 
 [1{/Users/karlovrancic/Library/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/enc/dvips/base/8r.enc}
 
-{/Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc} <./figures/neuronpedia_feat1105.png> <./figures/jaccard_overlap.pdf>]
+{/Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc} <./figures/neuronpedia_feat1105.png> <./figures/jaccard_overlap.pdf>]
 \tf@nav=\write6
 \openout6 = `poster.nav'.
 
@@ -925,15 +925,15 @@ Package rerunfilecheck Info: File `poster.out' has not changed.
 (rerunfilecheck)             Checksum: D41D8CD98F00B204E9800998ECF8427E;0.
  ) 
 Here is how much of TeX's memory you used:
- 25393 strings out of 469519
- 484378 string characters out of 5468526
- 1075068 words of memory out of 5000000
+ 25375 strings out of 469519
+ 484225 string characters out of 5468526
+ 1078425 words of memory out of 5000000
  53169 multiletter control sequences out of 15000+600000
- 738135 words of font info for 323 fonts, out of 8000000 for 9000
+ 737441 words of font info for 311 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  101i,18n,107p,1003b,1022s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmmi12.pfb></Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmr17.pfb></Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmsy10.pfb></Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/type1/urw/helvetic/uhvb8a.pfb></Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/type1/urw/helvetic/uhvr8a.pfb></Users/karlovrancic/Library/TinyTeX/texmf-dist/fonts/type1/urw/helvetic/uhvro8a.pfb>
-Output written on poster.pdf (1 page, 367866 bytes).
+Output written on poster.pdf (1 page, 370419 bytes).
 PDF statistics:
  125 PDF objects out of 1000 (max. 8388607)
  47 compressed objects within 1 object stream
